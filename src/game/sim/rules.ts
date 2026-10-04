@@ -70,6 +70,11 @@ export function restartCost(restartsUsed: number): number {
   return Math.min(maxRestartCost, firstRestartCost * Math.pow(2, Math.max(restartsUsed, 0)));
 }
 
+/** How many "watch an ad to try again" are left in this run. */
+export function adRetriesLeft(adRestartsUsed: number): number {
+  return Math.max(0, CONFIG.economy.maxAdRetries - Math.max(0, adRestartsUsed));
+}
+
 // ---- ad pacing ---------------------------------------------------------------------------
 
 export interface InterstitialContext {

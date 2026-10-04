@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  adRetriesLeft,
   CONFIG,
   bisectingLine,
   createRun,
@@ -66,6 +67,33 @@ function cutEvent(list: RunEvent[]) {
   if (!e || e.type !== 'cut') throw new Error('no cut event');
   return e;
 }
+
+describe('ad tries', () => {
+  const fail = (run: ReturnType<typeof createRun>): void => {
+    for (let i = 0; i < 400 && run.phase === 'playing'; i++) stepRun(run, { cut: null });
+  };
+
+  it('allow two retries by ad per run, then say no; coins have no such limit', () => {
+    const run = createRun('arcade', 3, { startTime: 1 });
+    fail(run);
+    expect(run.phase).toBe('failed');
+    expect(run.adRestarts).toBe(0);
+    expect(restartRun(run, true)).toBe(true);
+    expect(run.adRestarts).toBe(1);
+    run.timeLeft = 0;
+    run.phase = 'failed';
+    expect(restartRun(run, true)).toBe(true);
+    expect(run.adRestarts).toBe(2);
+    run.phase = 'failed';
+    expect(adRetriesLeft(run.adRestarts)).toBe(0);
+    expect(restartRun(run, true)).toBe(false); // no third ad
+    expect(run.phase).toBe('failed');
+    expect(run.restarts).toBe(2);
+    expect(restartRun(run)).toBe(true); // but coins still work
+    expect(run.restarts).toBe(3);
+    expect(run.adRestarts).toBe(2);
+  });
+});
 
 describe('classic: a round', () => {
   it('starts with one still fruit at the centre, the widest tolerance and a spawn event', () => {

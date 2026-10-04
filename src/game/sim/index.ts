@@ -29,6 +29,7 @@ export {
 } from './profile';
 export {
   accuracyFor,
+  adRetriesLeft,
   comboMultiplier,
   fruitRadiusFor,
   lossMultiplierFor,

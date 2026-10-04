@@ -61,6 +61,9 @@ export interface TryAgainInfo {
   cost: number;
   coins: number;
   adReady: boolean;
+  /** Watch-an-ad tries left in this run, and the most there are (shown as "2/2"). */
+  adTriesLeft: number;
+  adTriesMax: number;
 }
 
 export interface ResultInfo {
@@ -194,6 +197,8 @@ export function createUi(root: HTMLElement, cb: UiCallbacks): Ui {
   const retryCost = el('span', 'btn-sub');
   retryCoins.append(retryCost);
   const retryAd = button('Watch ad to try again', 'retry-ad', 'btn-citrus');
+  const retryAdTries = el('span', 'btn-sub');
+  retryAd.append(retryAdTries);
   const retryNote = el('p', 'note');
   const tryPanel = el('div', 'panel');
   const tryActions = el('div', 'actions');
@@ -383,8 +388,20 @@ export function createUi(root: HTMLElement, cb: UiCallbacks): Ui {
       const affordable = info.coins >= info.cost;
       retryCoins.disabled = !affordable;
       retryCost.replaceChildren(coinAmount(info.cost));
-      retryAd.hidden = !info.adReady;
-      setText(retryNote, affordable ? `You have ${info.coins} coins` : `You have ${info.coins} coins. Watch an ad to try again for free.`);
+      // With ads still available to try, the button appears only once one is loaded; when this run's ad tries are
+      // used up it stays, greyed out at 0/2, so the limit is visible.
+      const adsLeft = info.adTriesLeft > 0;
+      retryAd.hidden = adsLeft && !info.adReady;
+      retryAd.disabled = !adsLeft;
+      setText(retryAdTries, `${info.adTriesLeft}/${info.adTriesMax}`);
+      setText(
+        retryNote,
+        affordable
+          ? `You have ${info.coins} coins`
+          : adsLeft
+            ? `You have ${info.coins} coins. Watch an ad to try again for free.`
+            : `You have ${info.coins} coins and no ad tries left this run.`,
+      );
     },
 
     setResult(info) {

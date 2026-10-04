@@ -16,6 +16,7 @@ import {
   BUNDLED_SKINS,
   CONFIG,
   FRUIT_KINDS,
+  adRetriesLeft,
   bladeOutline,
   buySkin,
   comboMultiplier,
@@ -274,13 +275,15 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
       cost: restartCost(run.restarts),
       coins: profile.coins,
       adReady: ads.isRewardedReady(),
+      adTriesLeft: adRetriesLeft(run.adRestarts),
+      adTriesMax: CONFIG.economy.maxAdRetries,
     };
     ui.setTryAgain(info);
     setPhase('tryAgain', 'tryAgain');
   }
 
-  function continueRun(): void {
-    if (!run || !restartRun(run)) return;
+  function continueRun(viaAd = false): void {
+    if (!run || !restartRun(run, viaAd)) return;
     drain(run);
     scene.clearEffects();
     ui.setMarker(null);
@@ -303,6 +306,10 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
   }
 
   async function retryWithAd(): Promise<void> {
+    if (run && adRetriesLeft(run.adRestarts) === 0) {
+      ui.toast('No ad tries left this run');
+      return;
+    }
     if (!run || !ads.isRewardedReady()) {
       ui.toast('No ad available right now');
       return;
@@ -312,7 +319,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
     const rewarded = await ads.showRewarded(); // never rejects
     void ads.preloadRewarded();
     analytics.track('retry', { method: 'ad', rewarded, n: (run?.restarts ?? 0) + 1 });
-    if (rewarded) continueRun();
+    if (rewarded) continueRun(true);
     else {
       showTryAgain();
       ui.toast('The ad was not finished');

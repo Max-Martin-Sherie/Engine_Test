@@ -23,7 +23,7 @@ nothing and you can try again.
   `CONFIG.survival` (`sim/config.ts`).
 
 **Trying again.** Once a run has failed: pay coins (20, then doubling, capped at 1000) or watch a
-rewarded ad (works for any try, including the most expensive). A try puts the same fruit back; in
+rewarded ad (works for any try, but only 2 per run, shown on the button as 2/2). A try puts the same fruit back; in
 Survival it also gives the margin back that the fatal cut would have used. At the end of a run you earn coins and can watch a rewarded
 ad to double them. Returning to the menu shows a short interstitial, but not after a rewarded ad in
 that run and not more often than every 45 s.

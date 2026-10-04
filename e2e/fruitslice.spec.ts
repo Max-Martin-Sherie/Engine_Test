@@ -134,6 +134,33 @@ test.describe('trying again', () => {
     await expect.poll(async () => (await runDump(page))?.round).toBe(2);
   });
 
+  test('two tries by ad per run (2/2), then only coins', async ({ page }) => {
+    await seedProfile(page, { coins: 500 });
+    await startClassic(page);
+    await failOnPurpose(page);
+    const watch = button(page, 'Watch ad to try again');
+    await expect(watch).toContainText('2/2');
+    await shot(page, '06b-ad-tries');
+
+    await watch.click();
+    await waitForPhase(page, 'playing');
+    await failOnPurpose(page);
+    await expect(watch).toContainText('1/2');
+    await watch.click();
+    await waitForPhase(page, 'playing');
+    await failOnPurpose(page);
+
+    // Both ad tries are used: the button stays, greyed out at 0/2. Coins still work.
+    await expect(watch).toContainText('0/2');
+    await expect(watch).toBeDisabled();
+    await shot(page, '06c-no-ad-tries');
+    expect((await runDump(page))!.restarts).toBe(2);
+    await expect(button(page, /^Try again/)).toBeEnabled();
+    await button(page, /^Try again/).click();
+    await waitForPhase(page, 'playing');
+    expect((await runDump(page))!.restarts).toBe(3);
+  });
+
   test('with coins: each try costs double the last', async ({ page }) => {
     await seedProfile(page, { coins: 500 });
     await startClassic(page);

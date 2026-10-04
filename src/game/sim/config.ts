@@ -116,6 +116,8 @@ export const CONFIG = {
     perPerfect: 3,
     scoreDivisor: 100,
     /** Cost of the first "try again" in a run; each later one doubles, up to the cap. */
+    /** A run can be continued by watching an ad this many times; coins have no such limit. */
+    maxAdRetries: 2,
     firstRestartCost: 20,
     maxRestartCost: 1000,
   },

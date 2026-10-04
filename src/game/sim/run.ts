@@ -5,6 +5,7 @@ import { FRUIT_KINDS, makeFruitShape, pickKind, type FruitKind, type FruitShape 
 import { place, type Polygon, type Vec } from './geometry';
 import {
   accuracyFor,
+  adRetriesLeft,
   fruitRadiusFor,
   lossMultiplierFor,
   nextCombo,
@@ -130,6 +131,8 @@ export interface Run {
   marginBeforeFail: number;
   /** Tries used this run; sets the price of the next one. */
   restarts: number;
+  /** How many of those tries were paid for by watching an ad (limited per run). */
+  adRestarts: number;
   events: RunEvent[];
 }
 
@@ -166,6 +169,7 @@ export function createRun(mode: Mode, seed: number, options: { startTime?: numbe
     margin: mode === 'survival' ? CONFIG.survival.startMargin : 0,
     marginBeforeFail: mode === 'survival' ? CONFIG.survival.startMargin : 0,
     restarts: 0,
+    adRestarts: 0,
     events: [],
   };
   spawnRound(run);
@@ -475,10 +479,13 @@ function handleCut(run: Run, a: Vec, b: Vec): void {
 
 /**
  * Carries on after a failure ("try again"). Classic brings back the very same fruit; Arcade gives
- * time back and clears strikes down to one. Returns false if the run is not in the failed state.
+ * time back and clears strikes down to one. Returns false if the run is not in the failed state, or if
+ * `viaAd` and this run's ad tries are used up.
  */
-export function restartRun(run: Run): boolean {
+export function restartRun(run: Run, viaAd = false): boolean {
   if (run.phase !== 'failed') return false;
+  if (viaAd && adRetriesLeft(run.adRestarts) === 0) return false; // the ads for this run are used up
+  if (viaAd) run.adRestarts += 1;
   run.restarts += 1;
   run.phase = 'playing';
   run.failReason = null;
@@ -524,6 +531,7 @@ export function debugRun(run: Run): Record<string, unknown> {
     margin: run.margin,
     lossMultiplier: lossMultiplierFor(run.round),
     restarts: run.restarts,
+    adRestarts: run.adRestarts,
     cooldown: run.cooldown,
     fruits: run.fruits.map((f) => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, radius: f.radius, polygon: fruitPolygon(f) })),
     bombs: run.bombs.map((b) => ({ id: b.id, x: b.x, y: b.y, r: b.r })),

@@ -29,7 +29,7 @@ how close the halves' **areas** are to 50/50 decides the score. A drag that does
 | **Survival** | You have a **margin** (25 to start, max 35). *Every* cut takes `deviation × lossMultiplier` off it (a perfect cut is free). A cut the margin can't pay for ends the run. Floating **"+x" bubbles** sit over the fruit; drag through one on a cut that holds and x is added. After 8 fruit the loss multiplier grows (+0.08 per fruit, cap ×4) so nobody lasts forever. |
 
 **After a failed run - "try again"**: pay coins (20, then ×2 each time, cap 1000) *or* watch a rewarded
-ad (works for any try). The same fruit comes back. In Arcade you get time back (20 s) and keep 1 strike.
+ad (works for any try, but only 2 per run - the button shows how many are left, "2/2"; coins have no limit). The same fruit comes back. In Arcade you get time back (20 s) and keep 1 strike.
 In Survival the margin returns to what it was before the fatal cut.
 **End of run**: coins = 2/fruit + 3/perfect + score/100. A rewarded ad doubles them (once). Returning
 to the menu shows an interstitial, but never after a rewarded ad that run, and at most every 45 s.
