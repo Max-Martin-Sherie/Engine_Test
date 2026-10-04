@@ -1,0 +1,93 @@
+{
+  // Run from the menu: Terminal > Run Task..., or Ctrl+Shift+B (build) / the Test task shortcut.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dev: run in browser",
+      "type": "npm",
+      "script": "dev",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE v",
+          "endsPattern": "Local:"
+        }
+      },
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "detail": "Vite dev server on http://localhost:5173 (and your LAN address)"
+    },
+    {
+      "label": "build",
+      "type": "npm",
+      "script": "build",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": "$tsc",
+      "detail": "Typecheck + production build into dist/"
+    },
+    {
+      "label": "check (typecheck + unit tests)",
+      "type": "npm",
+      "script": "check",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": "$tsc",
+      "detail": "Run after every change"
+    },
+    {
+      "label": "typecheck",
+      "type": "npm",
+      "script": "typecheck",
+      "problemMatcher": "$tsc"
+    },
+    {
+      "label": "unit tests",
+      "type": "npm",
+      "script": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "e2e tests",
+      "type": "npm",
+      "script": "e2e",
+      "problemMatcher": [],
+      "detail": "Needs Playwright's Chromium (npx playwright install chromium) or CHROMIUM_PATH"
+    },
+    {
+      "label": "e2e tests (installed Chrome, Windows)",
+      "type": "npm",
+      "script": "e2e",
+      "problemMatcher": [],
+      "options": {
+        "env": { "CHROMIUM_PATH": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" }
+      },
+      "detail": "Uses your installed Chrome instead of Playwright's download"
+    },
+    {
+      "label": "android: setup (once per game)",
+      "type": "npm",
+      "script": "android:setup",
+      "problemMatcher": []
+    },
+    {
+      "label": "android: run on device/emulator",
+      "type": "npm",
+      "script": "android",
+      "problemMatcher": [],
+      "detail": "Needs Android Studio, the Android SDK and JDK 21"
+    },
+    {
+      "label": "ios: setup (macOS only, once per game)",
+      "type": "npm",
+      "script": "ios:setup",
+      "problemMatcher": []
+    },
+    {
+      "label": "ios: run (macOS only)",
+      "type": "npm",
+      "script": "ios",
+      "problemMatcher": []
+    }
+  ]
+}

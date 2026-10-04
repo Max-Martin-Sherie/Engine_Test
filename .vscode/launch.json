@@ -1,0 +1,15 @@
+{
+  // F5 starts the dev server and opens the game in Chrome with the debugger attached
+  // (breakpoints in src/*.ts work).
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run in Chrome (with debugger)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}",
+      "preLaunchTask": "dev: run in browser"
+    }
+  ]
+}
