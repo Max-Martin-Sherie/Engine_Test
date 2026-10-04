@@ -49,6 +49,9 @@ import { createScene } from './view';
 import { COLORS } from './view/palette';
 
 type Phase = 'menu' | 'playing' | 'paused' | 'failing' | 'tryAgain' | 'result' | 'shop' | 'settings' | 'ad';
+/** What the purse is refilled to in dev builds. */
+const DEV_COINS = 999_999;
+
 type CutEventData = Extract<RunEvent, { type: 'cut' }>;
 
 const RARITY_RANK: Record<string, number> = { common: 0, rare: 1, epic: 2, legendary: 3 };
@@ -90,7 +93,17 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
   let pendingFlash: { x: number; y: number; text: string; sub?: string; tone: Tone } | null = null;
 
   const skinById = (id: string): Skin => catalog.find((s) => s.id === id) ?? catalog.find((s) => s.id === CONFIG.defaultSkin) ?? BUNDLED_SKINS[0]!;
-  const save = (): void => void safeSetItem(PROFILE_KEY, serializeProfile(profile));
+  // Dev builds (npm run dev) keep the purse full so the shop and retries can be tried freely. Production builds
+  // never do (import.meta.env.DEV is false there); the e2e server turns it off with VITE_INFINITE_COINS=false.
+  const infiniteCoins = import.meta.env.DEV && import.meta.env.VITE_INFINITE_COINS !== 'false';
+  const topUp = (): void => {
+    if (infiniteCoins && profile.coins < DEV_COINS) profile = { ...profile, coins: DEV_COINS };
+  };
+  topUp();
+  const save = (): void => {
+    topUp();
+    safeSetItem(PROFILE_KEY, serializeProfile(profile));
+  };
 
   function applyProfile(): void {
     audio.setEnabled(profile.settings.sound);

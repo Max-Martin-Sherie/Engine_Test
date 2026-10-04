@@ -56,7 +56,9 @@ every fruit out to check them; the e2e gallery test fails if one throws.
 
 `?seed=N` (reproducible run), `?time=S` (Arcade start time), `?catalog=URL` (online skins; put it first,
 Vite treats URLs ending in `.json` as files), `?gallery`, plus the engine's `?ads=no-fill` and friends.
-In dev builds `window.__game` shows the current run and profile.
+In dev builds `window.__game` shows the current run and profile. Dev builds (`npm run dev`) also keep
+the coin purse at 999,999 so the shop and retries can be tried freely; start the dev server with
+`VITE_INFINITE_COINS=false` to play with the real economy. Production builds never do this.
 
 ## Tests
 

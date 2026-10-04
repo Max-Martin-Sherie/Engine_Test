@@ -24,6 +24,8 @@ export default defineConfig({
     command: `npm run dev -- --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,
+    // The tests check real coin amounts and prices, so they run without the dev-only full purse.
+    env: { VITE_INFINITE_COINS: 'false' },
     timeout: 60_000,
   },
 });

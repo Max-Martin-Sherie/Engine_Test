@@ -12,4 +12,6 @@ interface Window {
 interface ImportMetaEnv {
   /** Optional URL of an online skin catalog (JSON). Leave unset to use only the bundled skins. */
   readonly VITE_SKINS_CATALOG_URL?: string;
+  /** Dev builds keep the coin purse full unless this is 'false' (the e2e server sets it, to test real prices). */
+  readonly VITE_INFINITE_COINS?: string;
 }
