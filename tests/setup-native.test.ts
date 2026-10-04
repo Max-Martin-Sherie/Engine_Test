@@ -13,7 +13,9 @@ import {
   setupNative,
 } from '../scripts/setup-native.mjs';
 
-const fixture = (name: string): string => readFileSync(join(__dirname, 'fixtures', name), 'utf8');
+/** Fixtures are templates as Capacitor generates them (LF). Git on Windows may check them out as CRLF. */
+const fixture = (name: string): string =>
+  readFileSync(join(__dirname, 'fixtures', name), 'utf8').replace(/\r\n/g, '\n');
 const MANIFEST = fixture('android-template-AndroidManifest.xml');
 const STRINGS = fixture('android-template-strings.xml');
 const PLIST = fixture('ios-template-Info.plist');
