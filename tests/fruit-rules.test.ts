@@ -3,7 +3,7 @@ import { createRng } from '../src/engine/core/rng';
 import { CONFIG } from '../src/game/sim/config';
 import { FRUIT_KINDS, makeFruitShape, pickKind } from '../src/game/sim/fruit';
 import { createRun } from '../src/game/sim/run';
-import { area, boundingRadius, centroid, containsPoint, type Vec } from '../src/game/sim/geometry';
+import { area, boundingRadius, centroid, type Vec } from '../src/game/sim/geometry';
 import {
   accuracyFor,
   comboMultiplier,
@@ -46,15 +46,10 @@ describe('fruit shapes', () => {
         const label = `${kind} #${seed}`;
         expect(shape.outline.length, label).toBeGreaterThanOrEqual(32);
         expect(isSimple(shape.outline), `${label} outline`).toBe(true);
-        expect(isSimple(shape.inner), `${label} inner`).toBe(true);
         expect(boundingRadius(shape.outline), label).toBeCloseTo(1, 9);
         expect(area(shape.outline), label).toBeGreaterThan(0.3);
         const c = centroid(shape.outline);
         expect(Math.hypot(c.x, c.y), `${label} centred`).toBeLessThan(1e-9);
-        // The flesh sits inside the skin.
-        expect(area(shape.inner), label).toBeLessThan(area(shape.outline));
-        const insideCount = shape.inner.filter((p) => containsPoint(shape.outline, p)).length;
-        expect(insideCount, `${label} flesh inside skin`).toBe(shape.inner.length);
       }
     }
   });

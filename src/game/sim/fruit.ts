@@ -30,12 +30,11 @@ export const FRUIT_KINDS: readonly FruitKind[] = [
 
 /**
  * A fruit's silhouette, centred on its centroid and scaled so the farthest point is at distance 1.
- * `inner` is the flesh, drawn inside the skin. Multiply by a radius to get world units.
+ * Multiply by a radius to get world units.
  */
 export interface FruitShape {
   kind: FruitKind;
   outline: Vec[];
-  inner: Vec[];
 }
 
 const TAU = Math.PI * 2;
@@ -98,11 +97,11 @@ function crescent(segments: number, sweep: number, width: number): Vec[] {
 }
 
 /** Moves the shape's centroid to the origin and scales it so its farthest point is at distance 1. */
-function normalize(outline: Polygon, inner: Polygon): { outline: Vec[]; inner: Vec[] } {
+function normalize(outline: Polygon): { outline: Vec[] } {
   const c = centroid(outline);
   const moved = translate(outline, -c.x, -c.y);
   const k = 1 / boundingRadius(moved);
-  return { outline: scale(moved, k), inner: scale(translate(inner, -c.x, -c.y), k) };
+  return { outline: scale(moved, k) };
 }
 
 /**
@@ -124,7 +123,6 @@ interface RadialSpec {
   radius: (theta: number) => number;
   map?: (p: Vec) => Vec;
   /** Flesh size as a fraction of the skin outline. */
-  flesh: number;
 }
 
 const dimple = (angle: number, depth: number, sigma = 0.3) => (t: number): number => 1 - depth * gauss(angleDiff(t, angle), sigma);
@@ -134,33 +132,32 @@ function radialSpec(kind: Exclude<FruitKind, 'banana'>, rng: RngState): RadialSp
   const round = (): number => 1;
   switch (kind) {
     case 'orange':
-      return { wobble: 0.025, ax: 1, ay: 1, radius: round, flesh: 0.9 };
+      return { wobble: 0.025, ax: 1, ay: 1, radius: round };
     case 'apple': {
       const top = dimple(TOP, 0.2);
       const bottom = dimple(BOTTOM, 0.06);
-      return { wobble: 0.04, ax: 1, ay: 0.94, radius: (t) => top(t) * bottom(t), flesh: 0.9 };
+      return { wobble: 0.04, ax: 1, ay: 0.94, radius: (t) => top(t) * bottom(t) };
     }
     case 'watermelon':
-      return { wobble: 0.04, ax: 1.3 + jitter, ay: 0.92, radius: round, flesh: 0.9 };
+      return { wobble: 0.04, ax: 1.3 + jitter, ay: 0.92, radius: round };
     case 'lemon':
       return {
         wobble: 0.04,
         ax: 1.2 + jitter,
         ay: 0.82,
         radius: (t) => 1 + 0.16 * gauss(angleDiff(t, 0), 0.2) + 0.16 * gauss(angleDiff(t, Math.PI), 0.2),
-        flesh: 0.9,
       };
     case 'pear':
-      return { wobble: 0.04, ax: 1, ay: 1, radius: round, map: taper(0.5, 1.08, 1.12), flesh: 0.9 };
+      return { wobble: 0.04, ax: 1, ay: 1, radius: round, map: taper(0.5, 1.08, 1.12) };
     case 'kiwi':
-      return { wobble: 0.04, ax: 1.12 + jitter, ay: 0.92, radius: round, flesh: 0.88 };
+      return { wobble: 0.04, ax: 1.12 + jitter, ay: 0.92, radius: round };
     case 'dragonfruit':
-      return { wobble: 0.035, ax: 1.2 + jitter, ay: 0.9, radius: round, flesh: 0.9 };
+      return { wobble: 0.035, ax: 1.2 + jitter, ay: 0.9, radius: round };
     case 'pineapple':
-      return { wobble: 0.03, ax: 0.78 + jitter / 2, ay: 1.12, radius: round, flesh: 0.88 };
+      return { wobble: 0.03, ax: 0.78 + jitter / 2, ay: 1.12, radius: round };
     case 'mango': {
       const dent = dimple(BOTTOM, 0.17, 0.5);
-      return { wobble: 0.04, ax: 1.22 + jitter, ay: 0.86, radius: dent, flesh: 0.9 };
+      return { wobble: 0.04, ax: 1.22 + jitter, ay: 0.86, radius: dent };
     }
     case 'starfruit':
       // A five-pointed star with a point straight up: concave between the points.
@@ -169,54 +166,49 @@ function radialSpec(kind: Exclude<FruitKind, 'banana'>, rng: RngState): RadialSp
         ax: 1,
         ay: 1,
         radius: (t) => 0.58 + 0.42 * Math.pow((1 + Math.cos(5 * (t - TOP))) / 2, 0.75),
-        flesh: 0.84,
       };
     case 'pomegranate': {
       const crown = (t: number): number => 1 + 0.07 * gauss(angleDiff(t, TOP), 0.22);
-      return { wobble: 0.03, ax: 1, ay: 0.96, radius: crown, flesh: 0.88 };
+      return { wobble: 0.03, ax: 1, ay: 0.96, radius: crown };
     }
     case 'passionfruit':
-      return { wobble: 0.02, ax: 1.05, ay: 0.97, radius: round, flesh: 0.86 };
+      return { wobble: 0.02, ax: 1.05, ay: 0.97, radius: round };
     case 'avocado':
-      return { wobble: 0.03, ax: 1, ay: 1, radius: round, map: taper(0.62, 1.02, 1.22), flesh: 0.9 };
+      return { wobble: 0.03, ax: 1, ay: 1, radius: round, map: taper(0.62, 1.02, 1.22) };
     case 'papaya':
-      return { wobble: 0.03, ax: 0.8, ay: 1, radius: round, map: taper(0.58, 1.05, 1.32), flesh: 0.9 };
+      return { wobble: 0.03, ax: 0.8, ay: 1, radius: round, map: taper(0.58, 1.05, 1.32) };
     case 'lychee': {
       const phase = nextRange(rng, 0, TAU);
-      return { wobble: 0.025, ax: 1, ay: 1, radius: (t) => 1 + 0.035 * Math.cos(14 * t + phase), flesh: 0.88 };
+      return { wobble: 0.025, ax: 1, ay: 1, radius: (t) => 1 + 0.035 * Math.cos(14 * t + phase) };
     }
     case 'coconut':
-      return { wobble: 0.025, ax: 1, ay: 0.98, radius: round, flesh: 0.84 };
+      return { wobble: 0.025, ax: 1, ay: 0.98, radius: round };
     case 'strawberry': {
       const top = dimple(TOP, 0.1, 0.35);
-      return { wobble: 0.03, ax: 1, ay: 1, radius: top, map: taper(1.04, 0.5, 1.08), flesh: 0.9 };
+      return { wobble: 0.03, ax: 1, ay: 1, radius: top, map: taper(1.04, 0.5, 1.08) };
     }
     case 'persimmon': {
       const top = dimple(TOP, 0.06);
-      return { wobble: 0.025, ax: 1.08 + jitter / 2, ay: 0.88, radius: top, flesh: 0.9 };
+      return { wobble: 0.025, ax: 1.08 + jitter / 2, ay: 0.88, radius: top };
     }
   }
 }
 
 export function makeFruitShape(kind: FruitKind, rng: RngState, segments: number): FruitShape {
   let outline: Vec[];
-  let inner: Vec[];
 
   if (kind === 'banana') {
     const sweep = 0.95 + nextRange(rng, -0.1, 0.1);
     const width = 0.23 + nextRange(rng, -0.02, 0.03);
     outline = crescent(segments, sweep, width);
-    // A bit shorter and slimmer, so the peel shows at the tips instead of the flesh touching them.
-    inner = crescent(segments, sweep * 0.92, width * 0.62);
   } else {
     const spec = radialSpec(kind, rng);
     const wobble = makeWobble(rng, spec.wobble);
     outline = radial(segments, (t) => spec.radius(t) * wobbleAt(wobble, t), spec.ax, spec.ay);
     if (spec.map) outline = outline.map(spec.map);
-    inner = outline.map((p) => ({ x: p.x * spec.flesh, y: p.y * spec.flesh }));
   }
 
-  return { kind, ...normalize(outline, inner) };
+  return { kind, ...normalize(outline) };
 }
 
 /** Picks a kind from `kinds` using the seeded RNG. */

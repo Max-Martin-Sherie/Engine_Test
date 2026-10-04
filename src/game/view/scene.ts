@@ -16,7 +16,6 @@ import {
   type Skin,
   type Vec,
 } from '../sim';
-import { drawFruit } from './fruitArt';
 import { loadFruitSheet, makeFruitBody } from './fruitSprites';
 import { COLORS, FRUIT_COLORS } from './palette';
 
@@ -137,12 +136,15 @@ export function createScene(field: Container): Scene {
     ] as const
   ).map(([kind, x, y, radius], index) => {
     const holder = new Container();
-    const g = new Graphics();
-    drawFruit(g, makeFruitShape(kind, attractRng, CONFIG.fruit.segments), { x: 0, y: 0, rotation: 0, radius });
-    holder.addChild(g);
     holder.alpha = 0.33;
     attract.addChild(holder);
-    return { holder, x, y, index };
+    return { holder, kind, radius, x, y, index };
+  });
+  void ready.then(() => {
+    for (const item of attractItems) {
+      const shape = makeFruitShape(item.kind, attractRng, CONFIG.fruit.segments);
+      item.holder.addChild(makeFruitBody(shape, { x: 0, y: 0, rotation: 0, radius: item.radius }));
+    }
   });
 
   let skin: Skin = BUNDLED_SKINS[0]!;

@@ -43,13 +43,13 @@ server at all. The profile (coins, owned and worn skin, best scores, sound/vibra
   - `fruit.ts`: the 19 fruit outlines; `run.ts`: the run (spawns, cuts, strikes, retries, events);
     `geometry.ts` + `cut.ts`: splitting a shape by a line and judging a drag; `rules.ts`: scoring, coins, restart cost
   - `profile.ts`, `skins.ts`: saved data and the skin catalog
-- `src/game/view/`: Pixi drawing. `scene.ts` (field, fruit, halves, knife, juice), `fruitArt.ts`
-  (each fruit drawn), `palette.ts` (colours)
+- `src/game/view/`: Pixi drawing. `scene.ts` (field, fruit, halves, knife, juice), `fruitSprites.ts`
+  (the painted fruit sheet), `palette.ts` (colours, juice colours)
 - `src/game/ui/`: DOM menu, HUD, shop and result screens (`ui.ts`, `styles.css`)
 - `src/game/sfx.ts`: synthesised sound (no audio files)
 
 **Adding a fruit:** add a kind and a `RadialSpec` in `sim/fruit.ts`, colours in `view/palette.ts`, and
-a drawing in `view/fruitArt.ts` (halves reuse it, masked). `?gallery` (dev only) lays
+a painted picture in the sheet `src/game/art/fruits.png` (halves reuse it, masked; see `art/CHATGPT-PROMPT.md`). `?gallery` (dev only) lays
 every fruit out to check them; the e2e gallery test fails if one throws.
 
 ## Dev URL parameters

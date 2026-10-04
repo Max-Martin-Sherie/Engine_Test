@@ -72,8 +72,7 @@ Fruit in this image (reading order, left to right, top to bottom): <PASTE THE RO
 1. Open ChatGPT (image generation on).
 2. Attach **`art/fruit-guide.png`** (5 x 4 grid: each cell has a grey outline, the fruit's name in the
    top-left corner, and a magenta background).
-3. Optional but helpful: also attach **`art/fruit-reference.png`** (the game's current placeholder drawings of the same 19 fruit, same order). Then add this sentence at the start of the prompt: *"A second image shows my current rough placeholder drawings of the same 19 fruit in the same order. Use it only to know which fruit is which and roughly what colours I want; the new paintings must look far better."*
-4. Paste the prompt below, then send.
+3. Paste the prompt below, then send.
 
 ### The prompt
 
@@ -139,7 +138,7 @@ magenta, finds each fruit in its cell, fits it onto the game's outline, prints w
 (`NOTHING FOUND` means that cell was empty), and writes `src/game/art/fruits.png`.
 
 Check it with `npm run dev` and open `http://localhost:5173/?gallery=1` to see all 19, then play.
-To go back to the drawn fruit, delete `src/game/art/fruits.png`.
+The game needs `src/game/art/fruits.png`; without it fruit show as plain flat silhouettes.
 
 ## How it works (so you can change it)
 

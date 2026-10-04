@@ -1,6 +1,6 @@
 // @ts-nocheck - a standalone helper script, run by hand with node
 /**
- * Tools for replacing the drawn fruit with painted sprites (for example made with ChatGPT).
+ * Tools for the painted fruit sprites (made with an image generator such as ChatGPT).
  *
  *   node scripts/fruit-art.mjs guide
  *       Writes art/fruit-guide.png: ONE sheet with all 19 fruit (5 x 4). Quick, but each fruit ends up
@@ -8,13 +8,10 @@
  *   node scripts/fruit-art.mjs guide batches
  *       Writes art/batch-1.png ... batch-5.png: four fruit per image (2 x 2, 1024 x 1024). Give these to the
  *       image generator one at a time: each fruit gets ~450 px, which is sharp enough.
- *   node scripts/fruit-art.mjs reference
- *       Writes art/fruit-reference.png: the game's drawn fruit, to show the generator the idea.
  *   node scripts/fruit-art.mjs prepare [--cell 512] <picture.png> [more pictures...]
  *       Takes the generated picture(s), removes the magenta background, finds every fruit as a separate shape
  *       (rows may be uneven), puts them in reading order (picture after picture), scales each onto the game's
- *       outline and writes src/game/art/fruits.png. When that file exists the game draws it instead of the
- *       built-in drawings. --cell is the pixel size of one fruit's cell in that file (default 512).
+ *       outline and writes src/game/art/fruits.png, the sheet the game draws its fruit from. --cell is the pixel size of one fruit's cell in that file (default 512).
  *
  * Needs Chrome: set CHROMIUM_PATH to chrome.exe if Playwright has not downloaded its own browser.
  */
@@ -301,32 +298,11 @@ async function prepare(inputs, cell) {
   await savePng(resolve(root, 'src/game/art/fruits.png'), result.dataUrl);
 }
 
-/** Writes art/fruit-reference.png: the game's current drawn fruit, to show an image generator the idea. */
-async function reference() {
-  const server = await createServer({ root, server: { port: 5198, strictPort: true }, logLevel: 'error' });
-  await server.listen();
-  try {
-    const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
-    const page = await browser.newPage({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2 });
-    await page.goto('http://localhost:5198/?gallery=1');
-    await page.waitForFunction(() => window.__engine && window.__engine.viewReady === true);
-    await page.waitForTimeout(600);
-    const file = resolve(root, 'art/fruit-reference.png');
-    await mkdir(dirname(file), { recursive: true });
-    await page.screenshot({ path: file });
-    console.log(`wrote ${file}`);
-    await browser.close();
-  } finally {
-    await server.close();
-  }
-}
-
 const [command, ...rest] = process.argv.slice(2);
 if (command === 'guide') await (rest[0] === 'batches' ? guideBatches() : guide());
-else if (command === 'reference') await reference();
 else if (command === 'prepare') {
   const cellIndex = rest.indexOf('--cell');
   const cell = cellIndex >= 0 ? Number(rest[cellIndex + 1]) : 512;
   const files = rest.filter((_, i) => cellIndex < 0 || (i !== cellIndex && i !== cellIndex + 1));
   await prepare(files, cell);
-} else console.log('usage: node scripts/fruit-art.mjs guide [batches] | reference | prepare [--cell 512] <picture.png> [more...]');
+} else console.log('usage: node scripts/fruit-art.mjs guide [batches] | prepare [--cell 512] <picture.png> [more...]');

@@ -57,8 +57,7 @@ src/game/
     index.ts        public exports of the sim
   view/             PIXI DRAWING (reads the run, never writes it)
     scene.ts        field, fruit, bombs, "+x" bubbles, cut halves, juice, slash, the knife; showCut etc.
-    fruitArt.ts     the vector drawing of each fruit (skin, stem, pores...) from its outline
-    fruitSprites.ts uses src/game/art/fruits.png instead when that file exists
+    fruitSprites.ts loads the painted fruit sheet src/game/art/fruits.png and makes each fruit a sprite
     palette.ts      colours for the UI and every fruit
   ui/               DOM SCREENS (knows nothing of the run; plain values in, callbacks out)
     ui.ts           menu, HUD, pause, try-again, result, shop, settings, flash popups
@@ -137,9 +136,11 @@ menu ──play──► playing ──fail──► failing (1 s of red) ──
   the fruit's colours, a slash line and, for a miss, a red tint.
 - The **knife**: a block drawn beside the drag line with the middle of its edge on the line, tilted
   and swaying; it pops in on touch and swishes on after release (`ghosts`).
-- Fruit art: `fruitArt.ts` draws each fruit's *outside* with Pixi `Graphics` (a polygon fill + stroke,
-  then per-kind details: stems, leaves, dots, scales). Colours per fruit in `palette.ts`.
-  Prefer painted art? See section 9.
+- Fruit art: the painted sheet `src/game/art/fruits.png` (see section 9). `fruitSprites.ts` makes a sprite per fruit,
+  scaled by the fruit's radius. If the file were missing the fruit would be drawn as plain flat silhouettes
+  and the console would warn, so play never breaks.
+- Pixi v8 `Graphics` API reminder (used for the bubbles, bombs, knife and effects): `g.poly(points).fill(color).stroke({width, color})`,
+  `g.circle(x, y, r)`, `g.moveTo().lineTo().stroke()`. `g.clear()` empties it.
 - Pixi v8 `Graphics` API reminder: `g.poly(points).fill(color).stroke({width, color})`,
   `g.circle(x, y, r)`, `g.ellipse(...)`, `g.moveTo().lineTo().stroke()`. Calling `g.clear()` empties it.
 
@@ -186,11 +187,11 @@ ones, a wide desktop window, the fruit gallery) and saves screenshots to `e2e/sc
 `window.__game` and drags a line that splits it by exactly that deviation - copy this idea for any
 precise-input test.
 
-## 9. Replacing the drawn fruit with painted sprites
+## 9. The fruit art (painted sprites)
 
 See `art/CHATGPT-PROMPT.md` for the step-by-step. In short: attach `art/fruit-guide.png` to ChatGPT with
 the prompt, save its picture, run `node scripts/fruit-art.mjs prepare <picture.png>`; the game then
-uses `src/game/art/fruits.png`. Delete that file to go back to the drawn fruit.
+uses `src/game/art/fruits.png`. The original generated pictures are kept in `art/` (`chatgpt-sheet-2.webp`).
 
 ## 10. How to change things
 
@@ -201,7 +202,7 @@ uses `src/game/art/fruits.png`. Delete that file to go back to the drawn fruit.
 | Tune Survival | `config.survival` (start/max margin, bubble chance/size/value, when and how fast the loss multiplier grows) |
 | Rate/score differently | `config.rating`, `config.scoring`, `rules.ts` |
 | Pay more/less coins, change retry price | `config.economy` |
-| Add a fruit | kind + `RadialSpec` in `sim/fruit.ts`, colours in `view/palette.ts`, outside drawing in `view/fruitArt.ts`; `?gallery` to check; the "every kind … is a valid polygon" unit test must pass |
+| Add a fruit | kind + `RadialSpec` in `sim/fruit.ts` (its invisible cut outline), juice colours in `view/palette.ts`, a 20th painted cell (regenerate the guide with `node scripts/fruit-art.mjs guide`, paint, `prepare`); `?gallery` to check; the "every kind … is a valid polygon" unit test must pass |
 | Add a skin | add to `BUNDLED_SKINS` or to the online JSON |
 | Add a game mode | add to `Mode`/`MODES` in `config.ts`, branch in `run.ts` (`createRun`, `spawnRound`, `handleCut`, `restartRun`), a menu button in `ui/ui.ts` + `onPlay` in `index.ts`, best score key in `profile.ts`, tests |
 | Change menu look/text | `ui/ui.ts` (structure) and `ui/styles.css` (look; colours also in `view/palette.ts`) |
