@@ -5,6 +5,7 @@ import {
   button,
   cutFruit,
   dragWorld,
+  fruitHidden,
   phase,
   profileDump,
   runDump,
@@ -113,6 +114,8 @@ test.describe('trying again', () => {
     await waitForFruit(page);
     const before = (await runDump(page))!;
     await failOnPurpose(page);
+    // The halves flew off, so the whole fruit must not be drawn as well (it is still in the run for the retry).
+    expect(await fruitHidden(page)).toBe(true);
 
     // No coins yet, so the coin option is off; the ad works for any try.
     await expect(button(page, /^Try again/)).toBeDisabled();
@@ -124,6 +127,7 @@ test.describe('trying again', () => {
     expect(after.fruits[0]!.id).toBe(before.fruits[0]!.id);
     expect(after.score).toBe(before.score);
     expect((await profileDump(page)).coins).toBe(0);
+    await expect.poll(() => fruitHidden(page)).toBe(false); // and it is back
 
     // And it can be won now.
     await cutFruit(page, 0);

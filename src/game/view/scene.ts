@@ -45,6 +45,8 @@ export interface Scene {
   /** A "+x" bubble was cut through: it bursts. */
   showBubble(x: number, y: number, now: number): void;
   clearEffects(): void;
+  /** True while the whole fruit is hidden because its halves flew off after a failed cut. */
+  readonly fruitHidden: boolean;
   /** Dev tool: lay out every kind of fruit, whole or cut, to review the art. */
   showGallery(kinds: readonly FruitKind[]): void;
 }
@@ -150,6 +152,11 @@ export function createScene(field: Container): Scene {
   const bombSprites = new Map<number, BombSprite>();
   const bubbleSprites = new Map<number, BubbleSprite>();
   const halves: Half[] = [];
+  /**
+   * After a failed cut the run keeps the fruit (a try puts it back), but its two halves fly off, so the
+   * whole fruit must not be drawn as well. It comes back, with its pop-in, when the run carries on.
+   */
+  let hideFruit = false;
   const slashes: Slash[] = [];
   const particles: Particle[] = [];
   const rings: { x: number; y: number; start: number; g: Graphics; color?: number }[] = [];
@@ -288,6 +295,9 @@ export function createScene(field: Container): Scene {
 
   return {
     ready,
+    get fruitHidden() {
+      return hideFruit;
+    },
     setSkin(next) {
       skin = next;
       paintKnife(knifeBody);
@@ -298,6 +308,7 @@ export function createScene(field: Container): Scene {
     },
 
     showCut(a, b, pieces, ok, now) {
+      if (!ok) hideFruit = true;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const len = Math.hypot(dx, dy) || 1;
@@ -397,6 +408,17 @@ export function createScene(field: Container): Scene {
           item.holder.rotation = Math.sin(now * 0.3 + item.index * 1.7) * 0.4;
         }
       }
+
+      // A failed cut's fruit stays hidden while the run is failed; when it carries on, rebuild it so it pops in.
+      if (hideFruit && run?.phase !== 'failed') {
+        hideFruit = false;
+        for (const sprite of fruitSprites.values()) sprite.root.destroy({ children: true });
+        for (const sprite of bubbleSprites.values()) sprite.root.destroy({ children: true });
+        fruitSprites.clear();
+        bubbleSprites.clear();
+      }
+      fruitLayer.visible = !hideFruit;
+      bubbleLayer.visible = !hideFruit;
 
       // Fruit on screen.
       const liveFruit = new Set<number>();

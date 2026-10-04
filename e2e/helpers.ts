@@ -55,6 +55,7 @@ export interface ProfileDump {
 export const snapshot = (page: Page) => page.evaluate(() => window.__game);
 export const phase = async (page: Page): Promise<string | undefined> => (await snapshot(page))?.phase;
 export const runDump = async (page: Page): Promise<RunDump | null> => ((await snapshot(page))?.debug['run'] as RunDump | null) ?? null;
+export const fruitHidden = async (page: Page): Promise<boolean> => (await snapshot(page))!.debug['fruitHidden'] === true;
 export const profileDump = async (page: Page): Promise<ProfileDump> => (await snapshot(page))!.debug['profile'] as ProfileDump;
 
 /** Gives a returning player some coins before the page loads (once, so a reload keeps what was saved). */
