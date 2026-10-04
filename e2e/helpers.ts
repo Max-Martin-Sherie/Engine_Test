@@ -36,10 +36,12 @@ export interface RunDump {
   tolerance: number;
   timeLeft: number;
   strikes: number;
-  penalty: number;
+  margin: number;
+  lossMultiplier: number;
   restarts: number;
   fruits: FruitDump[];
   bombs: { id: number; x: number; y: number; r: number }[];
+  bubbles: { id: number; x: number; y: number; r: number; value: number }[];
 }
 
 export interface ProfileDump {

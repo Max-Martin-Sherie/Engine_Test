@@ -148,7 +148,7 @@ describe('fruit shapes', () => {
 
 describe('difficulty curve', () => {
   it('tolerance starts wide, shrinks every fruit, and stops at the floor', () => {
-    for (const mode of ['classic', 'arcade', 'survival'] as const) {
+    for (const mode of ['classic', 'arcade'] as const) {
       const { start, floor, fruitsToFloor } = CONFIG.tolerance[mode];
       expect(toleranceFor(mode, 0)).toBeCloseTo(start, 9);
       let previous = Infinity;

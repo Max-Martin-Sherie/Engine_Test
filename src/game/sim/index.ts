@@ -1,4 +1,4 @@
-export { CONFIG, MODES, type Mode } from './config';
+export { CONFIG, MODES, type CurveMode, type Mode } from './config';
 export { evaluateCut, segmentHitsCircle, type CancelReason, type CutEvaluation } from './cut';
 export { FRUIT_KINDS, makeFruitShape, type FruitKind, type FruitShape } from './fruit';
 export {
@@ -31,12 +31,14 @@ export {
   accuracyFor,
   comboMultiplier,
   fruitRadiusFor,
+  lossMultiplierFor,
   nextCombo,
   pointsFor,
   ratingFor,
   restartCost,
   runCoins,
   shouldShowInterstitial,
+  survivalAllowed,
   toleranceFor,
   type InterstitialContext,
   type Rating,
@@ -54,6 +56,7 @@ export {
   spawnRound,
   stepRun,
   type Bomb,
+  type Bubble,
   type CutPiece,
   type FailReason,
   type Fruit,

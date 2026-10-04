@@ -4,6 +4,8 @@ import { WORLD } from '../../engine/core/config';
 const TICKS_PER_SECOND = 60;
 
 export type Mode = 'classic' | 'arcade' | 'survival';
+/** Modes whose tolerance follows a curve over the fruit cut (Survival works from a margin instead). */
+export type CurveMode = Exclude<Mode, 'survival'>;
 export const MODES: readonly Mode[] = ['classic', 'arcade', 'survival'];
 
 export const CONFIG = {
@@ -23,20 +25,30 @@ export const CONFIG = {
    */
   tolerance: {
     classic: { start: 12, floor: 1.5, fruitsToFloor: 30 },
-    // Survival does not tighten with progress: it starts at the widest value and only misses shrink it.
-    survival: { start: 12, floor: 12, fruitsToFloor: 30 },
     arcade: { start: 16, floor: 4, fruitsToFloor: 60 },
   },
 
   /**
-   * Survival: a cut that is off by more than the tolerance does not end the run. The amount it was
-   * off by (beyond the allowed tolerance) is taken off the tolerance for good, and the run ends
-   * when what is left falls under `minTolerance`.
+   * Survival: you have a margin (in percentage points). Every cut takes its deviation from 50/50,
+   * times the loss multiplier, off it; a perfect cut costs nothing. The run ends when a cut would
+   * leave less than `minMargin`, so the widest cut allowed is (margin - minMargin) / multiplier.
+   * Now and then a "+x" bubble sits over the fruit: a drag through it adds x (up to `maxMargin`).
+   * The multiplier grows after `lossFrom` fruit so that no run can last forever.
    */
   survival: {
-    minTolerance: 0.6,
-    /** 1 = lose exactly the amount you were over by. */
-    penaltyFactor: 1,
+    startMargin: 25,
+    maxMargin: 35,
+    minMargin: 0.6,
+    lossFrom: 8,
+    lossPerFruit: 0.08,
+    maxLoss: 4,
+    bubbleFrom: 0,
+    bubbleChance: 0.4,
+    bubbleRadius: 18,
+    /** How far from the fruit's middle the bubble sits, as a fraction of the fruit's radius. */
+    bubbleOffset: 0.5,
+    bubbleMin: 3,
+    bubbleMax: 6,
   },
 
   /** Deviation (percentage points) at or under which a cut is rated Perfect / Great. */

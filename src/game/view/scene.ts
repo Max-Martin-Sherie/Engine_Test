@@ -2,7 +2,7 @@
  * How Fruit Slice looks. The engine's view (gameView) calls `update` once per frame; the flow
  * (index.ts) tells the scene about drags and cuts. Read the run, never write it.
  */
-import { Container, Graphics } from 'pixi.js';
+import { Container, Graphics, Text } from 'pixi.js';
 import { createRng, nextRange } from '../../engine/core/rng';
 import {
   BUNDLED_SKINS,
@@ -39,6 +39,8 @@ export interface Scene {
   showCut(a: Vec, b: Vec, pieces: readonly CutPiece[], ok: boolean, now: number): void;
   showCancel(a: Vec, b: Vec, now: number): void;
   showBomb(x: number, y: number, now: number): void;
+  /** A "+x" bubble was cut through: it bursts. */
+  showBubble(x: number, y: number, now: number): void;
   clearEffects(): void;
   /** Dev tool: lay out every kind of fruit, whole or cut, to review the art. */
   showGallery(kinds: readonly FruitKind[]): void;
@@ -61,6 +63,11 @@ interface FruitSprite {
 
 interface BombSprite {
   root: Container;
+}
+
+interface BubbleSprite {
+  root: Container;
+  born: number;
 }
 
 interface Half {
@@ -106,12 +113,13 @@ export function createScene(field: Container): Scene {
   const attract = new Container();
   const fruitLayer = new Container();
   const bombLayer = new Container();
+  const bubbleLayer = new Container();
   const effectLayer = new Container();
   const particleGraphics = new Graphics();
   const dragGraphics = new Graphics();
   const knifeLayer = new Container();
   const galleryLayer = new Container();
-  field.addChild(backdrop, attract, bombLayer, fruitLayer, effectLayer, particleGraphics, dragGraphics, knifeLayer, galleryLayer);
+  field.addChild(backdrop, attract, bombLayer, fruitLayer, bubbleLayer, effectLayer, particleGraphics, dragGraphics, knifeLayer, galleryLayer);
 
   // Attract mode: three big, faint fruit drifting behind the menu.
   const attractRng = createRng(7);
@@ -136,16 +144,38 @@ export function createScene(field: Container): Scene {
   let lastNow = 0;
   const fruitSprites = new Map<number, FruitSprite>();
   const bombSprites = new Map<number, BombSprite>();
+  const bubbleSprites = new Map<number, BubbleSprite>();
   const halves: Half[] = [];
   const slashes: Slash[] = [];
   const particles: Particle[] = [];
-  const rings: { x: number; y: number; start: number; g: Graphics }[] = [];
+  const rings: { x: number; y: number; start: number; g: Graphics; color?: number }[] = [];
 
   function makeFruitSprite(radius: number, shape: FruitShape): Container {
     const root = new Container();
     const g = new Graphics();
     drawFruit(g, shape, { x: 0, y: 0, rotation: 0, radius });
     root.addChild(g);
+    return root;
+  }
+
+  /** A soap bubble with the margin it is worth, "+4". */
+  function makeBubble(r: number, value: number): Container {
+    const root = new Container();
+    const g = new Graphics()
+      .circle(0, 0, r * 1.5)
+      .fill({ color: COLORS.lime, alpha: 0.1 })
+      .circle(0, 0, r)
+      .fill({ color: COLORS.lime, alpha: 0.26 })
+      .stroke({ width: 2.5, color: COLORS.lime, alpha: 0.95 })
+      .ellipse(-r * 0.38, -r * 0.42, r * 0.3, r * 0.17)
+      .fill({ color: 0xffffff, alpha: 0.55 });
+    const label = new Text({
+      text: `+${value}`,
+      style: { fontFamily: 'system-ui, sans-serif', fontWeight: '900', fontSize: Math.round(r * 1.05), fill: COLORS.cream, stroke: { color: COLORS.ink, width: 3 } },
+    });
+    label.anchor.set(0.5);
+    label.position.set(0, r * 0.06);
+    root.addChild(g, label);
     return root;
   }
 
@@ -317,6 +347,20 @@ export function createScene(field: Container): Scene {
       }
     },
 
+    showBubble(x, y, now) {
+      const g = new Graphics();
+      effectLayer.addChild(g);
+      rings.push({ x, y, start: now, g, color: COLORS.lime });
+      for (let i = 0; i < 14; i++) {
+        const angle = random(0, Math.PI * 2);
+        const speed = random(50, 180);
+        particles.push({
+          x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 30, born: now, life: random(0.4, 0.8),
+          size: random(2, 4.5), color: [COLORS.lime, COLORS.cream, 0xd6ffb0][i % 3]!,
+        });
+      }
+    },
+
     clearEffects() {
       for (const h of halves.splice(0)) h.root.destroy({ children: true });
       for (const s of slashes.splice(0)) s.g.destroy();
@@ -394,6 +438,26 @@ export function createScene(field: Container): Scene {
         bombSprites.delete(id);
       }
 
+      // "+x" bubbles over the fruit.
+      const liveBubbles = new Set<number>();
+      for (const b of run?.bubbles ?? []) {
+        liveBubbles.add(b.id);
+        let sprite = bubbleSprites.get(b.id);
+        if (!sprite) {
+          sprite = { root: makeBubble(b.r, b.value), born: now };
+          bubbleLayer.addChild(sprite.root);
+          bubbleSprites.set(b.id, sprite);
+        }
+        const pop = easeOutBack(clamp01((now - sprite.born) / 0.35));
+        sprite.root.position.set(b.x, b.y + Math.sin(now * 3 + b.id) * 3);
+        sprite.root.scale.set((0.4 + 0.6 * pop) * (1 + Math.sin(now * 4 + b.id) * 0.04));
+      }
+      for (const [id, sprite] of bubbleSprites) {
+        if (liveBubbles.has(id)) continue;
+        sprite.root.destroy({ children: true });
+        bubbleSprites.delete(id);
+      }
+
       // Cut halves drift apart, tumble, and fade.
       for (let i = halves.length - 1; i >= 0; i--) {
         const h = halves[i]!;
@@ -422,7 +486,7 @@ export function createScene(field: Container): Scene {
       for (let i = rings.length - 1; i >= 0; i--) {
         const r = rings[i]!;
         const t = clamp01((now - r.start) / 0.5);
-        r.g.clear().circle(r.x, r.y, 22 + 70 * easeOutCubic(t)).stroke({ width: 6 * (1 - t) + 1, color: COLORS.tomato, alpha: 1 - t });
+        r.g.clear().circle(r.x, r.y, 22 + 70 * easeOutCubic(t)).stroke({ width: 6 * (1 - t) + 1, color: r.color ?? COLORS.tomato, alpha: 1 - t });
         if (t >= 1) {
           r.g.destroy();
           rings.splice(i, 1);

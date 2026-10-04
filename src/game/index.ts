@@ -34,9 +34,9 @@ import {
   serializeProfile,
   setSetting,
   shouldShowInterstitial,
+  lossMultiplierFor,
   spend,
   stepRun,
-  toleranceFor,
   type Mode,
   type Profile,
   type Run,
@@ -87,6 +87,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
   let lastInterstitialAt: number | null = null;
   let result: ResultInfo | null = null;
   let lastSplit = '';
+  let pendingFlash: { x: number; y: number; text: string; sub?: string; tone: Tone } | null = null;
 
   const skinById = (id: string): Skin => catalog.find((s) => s.id === id) ?? catalog.find((s) => s.id === CONFIG.defaultSkin) ?? BUNDLED_SKINS[0]!;
   const save = (): void => void safeSetItem(PROFILE_KEY, serializeProfile(profile));
@@ -421,16 +422,23 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
         lastSplit = split;
         const labels = { perfect: 'Perfect!', great: 'Great!', good: 'Nice', miss: 'Uneven' } as const;
         // Above the fruit, so the two halves stay in view.
-        ui.flash({ x: first.x, y: Math.min(560, Math.max(180, first.y - first.radius - 34)), text: labels[event.rating], sub: split, tone: toneFor(event) });
+        const flash = { x: first.x, y: Math.min(560, Math.max(180, first.y - first.radius - 34)), text: labels[event.rating], sub: split, tone: toneFor(event) };
+        if (run?.mode === 'survival') pendingFlash = flash; // the margin event that follows adds what it cost
+        else ui.flash(flash);
+        for (const bubble of event.bubbles) scene.showBubble(bubble.x, bubble.y, visualTime);
         if (event.ok && event.rating !== 'miss') sfx.slice(event.rating);
         else sfx.uneven();
         if (!event.ok) lastFail = { reason: 'tolerance', deviation: event.deviation, tolerance: event.tolerance };
         break;
       }
-      case 'margin':
-        // Survival: the miss does not end the run, it eats into the tolerance for good.
-        ui.flash({ x: 180, y: 250, text: `Margin −${event.lost.toFixed(1)}`, sub: `${lastSplit} · ${event.remaining.toFixed(1)} left`, tone: 'miss' });
+      case 'margin': {
+        // Survival: what the cut cost, and what the bubbles gave back.
+        const base = pendingFlash ?? { x: 180, y: 250, text: '', tone: 'miss' as Tone };
+        pendingFlash = null;
+        const gained = event.gained > 0 ? ` · +${event.gained} bubble` : '';
+        ui.flash({ ...base, sub: `${lastSplit} · −${event.lost.toFixed(1)}${gained}` });
         break;
+      }
       case 'bomb':
         scene.showBomb(event.x, event.y, visualTime);
         ui.flash({ x: event.x, y: event.y, text: 'Bomb!', tone: 'bomb' });
@@ -464,8 +472,8 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
       timeLeft: r.timeLeft,
       strikes: r.strikes,
       maxStrikes: CONFIG.arcade.maxStrikes,
-      // Never show more lost than there was to lose (the fatal miss can overshoot).
-      penalty: Math.max(0, Math.min(r.penalty, toleranceFor(r.mode, r.round))),
+      margin: Math.max(0, r.margin),
+      lossMultiplier: lossMultiplierFor(r.round),
     };
   }
 
@@ -521,7 +529,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
       pendingCut = null;
       stepRun(run, { cut });
       drain(run);
-      const hint = run.mode === 'survival' ? 'Drag across · misses cost margin' : 'Drag across the whole fruit';
+      const hint = run.mode === 'survival' ? 'Drag across · slice bubbles for margin' : 'Drag across the whole fruit';
       ui.setHint(run.round < 2 && run.phase === 'playing' ? hint : null);
     },
 

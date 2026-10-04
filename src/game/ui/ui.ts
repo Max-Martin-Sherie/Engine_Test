@@ -44,8 +44,9 @@ export interface HudInfo {
   timeLeft: number;
   strikes: number;
   maxStrikes: number;
-  /** Survival: tolerance lost to earlier misses. */
-  penalty: number;
+  /** Survival: what is left to spend on cuts, and what a point of deviation costs now. */
+  margin: number;
+  lossMultiplier: number;
 }
 
 export interface TryAgainInfo {
@@ -312,7 +313,7 @@ export function createUi(root: HTMLElement, cb: UiCallbacks): Ui {
       menuCoins.replaceChildren(coinAmount(coins));
       setText(classicBest, bestClassic > 0 ? `Best ${bestClassic}` : 'Take your time');
       setText(arcadeBest, bestArcade > 0 ? `Best ${bestArcade}` : 'Beat the clock');
-      setText(survivalBest, bestSurvival > 0 ? `Best ${bestSurvival}` : 'Misses cost margin');
+      setText(survivalBest, bestSurvival > 0 ? `Best ${bestSurvival}` : 'Every cut costs margin');
     },
 
     setHud(info) {
@@ -325,8 +326,9 @@ export function createUi(root: HTMLElement, cb: UiCallbacks): Ui {
         }
         [...strikes.children].forEach((node, i) => node.classList.toggle('is-lost', i < info.strikes));
       } else {
-        const lost = info.mode === 'survival' && info.penalty > 0.05 ? ` · −${info.penalty.toFixed(1)}` : '';
-        setText(metaLabel, `Fruit ${info.fruits + 1}${lost}`);
+        const loss = info.lossMultiplier > 1.04 ? ` · Loss ×${info.lossMultiplier.toFixed(1)}` : '';
+        setText(metaLabel, info.mode === 'survival' ? `Margin ${info.margin.toFixed(1)}${loss}` : `Fruit ${info.fruits + 1}`);
+        hudMeta.classList.toggle('is-low', info.mode === 'survival' && info.margin < 6);
         hudMeta.classList.remove('is-low');
         strikes.replaceChildren();
       }

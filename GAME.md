@@ -14,12 +14,17 @@ nothing and you can try again.
 - **Arcade**: 60 s clock (max 99), three strikes. Good cuts add time, misses cost time and a strike.
   Fruit drift, then spin, then come in pairs; bombs (a drag through one is a strike) appear later.
   It starts with a wider tolerance than Classic and gets harder more slowly.
-- **Survival**: like Classic, but the tolerance starts at its widest and never tightens by itself, and a miss does not end the run. The amount you were *over* the
-  tolerance is taken off the tolerance for good. The run ends when less than 0.6 points are left.
+- **Survival**: you have a *margin*, 25 points to start (35 at most). Every cut takes its deviation
+  from 50/50 off it, so a perfect cut is free and a 4-point-off cut costs 4. The widest cut you may
+  make is whatever the margin still pays for, so the green zone on the gauge shrinks as you go. The
+  run ends when a cut would leave less than 0.6. Now and then a "+x" bubble floats over the fruit,
+  off-centre: aim the drag through it and x is added to your margin. After 8 fruit a loss multiplier
+  grows (×1.0 up to ×4.0), so even a very good player eventually runs out. All of it is in
+  `CONFIG.survival` (`sim/config.ts`).
 
 **Trying again.** Once a run has failed: pay coins (20, then doubling, capped at 1000) or watch a
 rewarded ad (works for any try, including the most expensive). A try puts the same fruit back; in
-Survival it also undoes the fatal miss. At the end of a run you earn coins and can watch a rewarded
+Survival it also gives the margin back that the fatal cut would have used. At the end of a run you earn coins and can watch a rewarded
 ad to double them. Returning to the menu shows a short interstitial, but not after a rewarded ad in
 that run and not more often than every 45 s.
 

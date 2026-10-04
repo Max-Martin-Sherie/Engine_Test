@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { createRun } from '../src/game/sim';
 import {
   SHOTS,
   button,
@@ -344,52 +345,61 @@ test.describe('arcade', () => {
 });
 
 test.describe('survival', () => {
-  test('a miss costs margin instead of the run; running out of margin ends it; a try takes the last miss back', async ({ page }) => {
+  test('every cut costs margin, a bubble gives it back, and running out ends the run', async ({ page }) => {
     const problems = watchForErrors(page);
     await seedProfile(page, { coins: 500 });
-    await page.goto('/?seed=4');
+    // A seed whose first fruit has a "+x" bubble over it.
+    let seed = 1;
+    while (createRun('survival', seed).bubbles.length === 0) seed++;
+    await page.goto(`/?seed=${seed}`);
     await button(page, /^Survival/).click();
     await waitForFruit(page);
     const first = (await runDump(page))!;
     expect(first.mode).toBe('survival');
     expect(first.fruits).toHaveLength(1);
-    expect(first.penalty).toBe(0);
+    expect(first.bubbles).toHaveLength(1);
+    expect(first.margin).toBe(25);
+    await expect(page.getByText(/^Margin 25\.0/)).toBeVisible();
     await shot(page, '15-survival-start');
 
-    // Off by 20 points with 12 allowed: the run goes on and 8 points of margin are gone.
-    await cutFruit(page, 20);
-    await expect(page.getByText(/^Margin −/)).toBeVisible();
-    await shotNow(page, '16-survival-margin');
-    expect(await phase(page)).toBe('playing');
-    await waitForFruit(page);
-    const hurt = (await runDump(page))!;
-    expect(hurt.penalty).toBeGreaterThan(7.5);
-    expect(hurt.penalty).toBeLessThan(8.5);
-    expect(hurt.tolerance).toBeCloseTo(first.tolerance - hurt.penalty, 1);
-    expect(hurt.round).toBe(0);
-    await expect(page.getByText(/^Fruit 1 · −/)).toBeVisible();
-    await shot(page, '17-survival-reduced');
+    // Aim a good cut through the bubble: its value comes back to the margin.
+    const fruit = first.fruits[0]!;
+    const bubble = first.bubbles[0]!;
+    await cutFruit(page, 3, Math.atan2(bubble.y - fruit.y, bubble.x - fruit.x));
+    await expect(page.getByText(/\+\d+ bubble/)).toBeVisible();
+    await shotNow(page, '16-survival-bubble');
+    const afterBubble = (await runDump(page))!;
+    expect(afterBubble.margin).toBeGreaterThan(25 + bubble.value - 4);
+    expect(afterBubble.margin).toBeLessThanOrEqual(35);
+    expect(afterBubble.round).toBe(1);
+    expect(afterBubble.phase).toBe('playing');
 
-    // A good cut still scores and does not give the margin back.
-    await cutFruit(page, 0);
-    await expect.poll(async () => (await runDump(page))?.round).toBe(1);
+    // An ordinary cut off by 6 takes 6 off the margin and the run goes on.
     await waitForFruit(page);
-    const afterGood = (await runDump(page))!;
-    expect(afterGood.penalty).toBeCloseTo(hurt.penalty, 5);
+    const before = (await runDump(page))!;
+    await expect(page.getByText(/^Margin /)).toBeVisible();
+    await shot(page, '17-survival-next');
+    await cutFruit(page, 6, 0.3 + Math.PI / 2);
+    await expect.poll(async () => (await runDump(page))?.round).toBe(2);
+    await waitForFruit(page);
+    const after = (await runDump(page))!;
+    expect(after.margin).toBeLessThan(before.margin - 5);
+    expect(after.margin).toBeGreaterThan(before.margin - 7);
+    expect(after.tolerance).toBeCloseTo(after.margin - 0.6, 1);
 
-    // A big miss uses up what is left: the run ends here, on the same fruit.
-    const fruitId = afterGood.fruits[0]!.id;
-    await cutFruit(page, 25);
+    // A cut worse than what is left ends the run, on the same fruit.
+    const fruitId = after.fruits[0]!.id;
+    await cutFruit(page, 45);
     await waitForPhase(page, 'tryAgain');
     await expect(page.getByText('Out of margin')).toBeVisible();
     await shot(page, '18-survival-out');
 
-    // Trying again with coins puts the margin back to where it was before that miss.
+    // A try with coins brings the fruit back with the margin it had.
     await button(page, /^Try again/).click();
     await waitForPhase(page, 'playing');
     const back = (await runDump(page))!;
     expect(back.fruits[0]!.id).toBe(fruitId);
-    expect(back.penalty).toBeCloseTo(hurt.penalty, 5);
+    expect(back.margin).toBeCloseTo(after.margin, 5);
     expect(back.restarts).toBe(1);
     expect(problems).toEqual([]);
   });

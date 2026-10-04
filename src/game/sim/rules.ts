@@ -1,4 +1,4 @@
-import { CONFIG, type Mode } from './config';
+import { CONFIG, type CurveMode } from './config';
 
 // ---- difficulty curve -------------------------------------------------------------------
 
@@ -6,7 +6,7 @@ import { CONFIG, type Mode } from './config';
  * How far from 50/50 (in percentage points) a cut may be after `fruitsCut` fruit. Shrinks
  * smoothly (a constant ratio per fruit) from the start value to the floor, then holds.
  */
-export function toleranceFor(mode: Mode, fruitsCut: number): number {
+export function toleranceFor(mode: CurveMode, fruitsCut: number): number {
   const { start, floor, fruitsToFloor } = CONFIG.tolerance[mode];
   const progress = Math.min(Math.max(fruitsCut, 0), fruitsToFloor) / fruitsToFloor;
   return start * Math.pow(floor / start, progress);
@@ -90,4 +90,17 @@ export function shouldShowInterstitial(ctx: InterstitialContext): boolean {
   if (!ctx.ready || ctx.watchedRewardedThisRun) return false;
   if (ctx.lastShownAtMs === null) return true;
   return ctx.nowMs - ctx.lastShownAtMs >= CONFIG.interstitial.minGapMs;
+}
+
+// ---- survival -------------------------------------------------------------------------------
+
+/** What a point of deviation costs once `round` fruit have been cut: 1 at first, then growing to a cap. */
+export function lossMultiplierFor(round: number): number {
+  const { lossFrom, lossPerFruit, maxLoss } = CONFIG.survival;
+  return Math.min(maxLoss, 1 + Math.max(0, round - lossFrom) * lossPerFruit);
+}
+
+/** The widest cut (deviation, percentage points) that still leaves Survival's minimum margin. */
+export function survivalAllowed(margin: number, round: number): number {
+  return Math.max(0, (margin - CONFIG.survival.minMargin) / lossMultiplierFor(round));
 }

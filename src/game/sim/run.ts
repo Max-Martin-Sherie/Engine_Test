@@ -6,9 +6,11 @@ import { place, type Polygon, type Vec } from './geometry';
 import {
   accuracyFor,
   fruitRadiusFor,
+  lossMultiplierFor,
   nextCombo,
   pointsFor,
   ratingFor,
+  survivalAllowed,
   toleranceFor,
   type Rating,
   type RunStats,
@@ -44,6 +46,15 @@ export interface Bomb {
   vy: number;
 }
 
+/** Survival: a "+x" bubble over the fruit. A drag through it, on a cut that holds, adds `value` to the margin. */
+export interface Bubble {
+  id: number;
+  x: number;
+  y: number;
+  r: number;
+  value: number;
+}
+
 export type RunPhase = 'playing' | 'failed' | 'over';
 export type FailReason = 'tolerance' | 'strikes' | 'time' | 'budget';
 
@@ -74,11 +85,13 @@ export type RunEvent =
       rating: Rating | 'miss';
       points: number;
       combo: number;
+      /** Survival: the "+x" bubbles this drag went through (only counted when the cut was fine). */
+      bubbles: { x: number; y: number; value: number }[];
     }
   | { type: 'bomb'; x: number; y: number }
   | { type: 'strike'; strikes: number }
-  /** Survival: a miss took `lost` points off the tolerance; `remaining` is what is left for the next fruit. */
-  | { type: 'margin'; lost: number; remaining: number }
+  /** Survival: a cut cost `lost` margin and bubbles gave `gained`; `remaining` is what is left. */
+  | { type: 'margin'; lost: number; gained: number; remaining: number }
   | { type: 'failed'; reason: FailReason }
   | { type: 'restarted'; restarts: number }
   | { type: 'over' };
@@ -92,8 +105,10 @@ export interface Run {
   failReason: FailReason | null;
   fruits: Fruit[];
   bombs: Bomb[];
-  /** The fruit and bombs as spawned, so a retry brings back exactly the same ones. */
-  snapshot: { fruits: Fruit[]; bombs: Bomb[] } | null;
+  /** Survival: the "+x" bubble over the fruit, if any. */
+  bubbles: Bubble[];
+  /** The fruit, bombs and bubbles as spawned, so a retry brings back exactly the same ones. */
+  snapshot: { fruits: Fruit[]; bombs: Bomb[]; bubbles: Bubble[] } | null;
   nextId: number;
   /** Seconds until the next fruit appears (while no fruit is on screen). */
   cooldown: number;
@@ -104,15 +119,15 @@ export interface Run {
   score: number;
   combo: number;
   accuracySum: number;
-  /** Tolerance of the fruit on screen now (percentage points). */
+  /** The widest deviation the fruit on screen allows (percentage points). In Survival it follows from `margin`. */
   tolerance: number;
   /** Arcade only. */
   timeLeft: number;
   strikes: number;
-  /** Survival only: tolerance lost to earlier misses, taken off the curve for good. */
-  penalty: number;
-  /** Survival: the penalty before the miss that ended the run; a retry goes back to it. */
-  penaltyBeforeFail: number;
+  /** Survival only: what is left to spend on cuts. */
+  margin: number;
+  /** Survival: the margin before the cut that ended the run; a retry goes back to it. */
+  marginBeforeFail: number;
   /** Tries used this run; sets the price of the next one. */
   restarts: number;
   events: RunEvent[];
@@ -135,6 +150,7 @@ export function createRun(mode: Mode, seed: number, options: { startTime?: numbe
     failReason: null,
     fruits: [],
     bombs: [],
+    bubbles: [],
     snapshot: null,
     nextId: 1,
     cooldown: 0,
@@ -144,11 +160,11 @@ export function createRun(mode: Mode, seed: number, options: { startTime?: numbe
     score: 0,
     combo: 0,
     accuracySum: 0,
-    tolerance: toleranceFor(mode, 0),
+    tolerance: mode === 'survival' ? 0 : toleranceFor(mode, 0), // spawnRound sets the real one
     timeLeft: mode === 'arcade' ? (options.startTime ?? ARCADE.startTime) : 0,
     strikes: 0,
-    penalty: 0,
-    penaltyBeforeFail: 0,
+    margin: mode === 'survival' ? CONFIG.survival.startMargin : 0,
+    marginBeforeFail: mode === 'survival' ? CONFIG.survival.startMargin : 0,
     restarts: 0,
     events: [],
   };
@@ -156,9 +172,9 @@ export function createRun(mode: Mode, seed: number, options: { startTime?: numbe
   return run;
 }
 
-/** The tolerance for the next fruit: the curve for the round, less anything Survival has taken off. */
+/** The tolerance for the next fruit: the curve for the round (Survival: what its margin allows). */
 export function currentTolerance(run: Run): number {
-  return Math.max(0, toleranceFor(run.mode, run.round) - run.penalty);
+  return run.mode === 'survival' ? survivalAllowed(run.margin, run.round) : toleranceFor(run.mode, run.round);
 }
 
 /** The fruit's outline in world coordinates. */
@@ -248,9 +264,13 @@ export function spawnRound(run: Run): void {
   const radius = fruitRadiusFor(run.round);
   run.fruits = [];
   run.bombs = [];
+  run.bubbles = [];
 
   if (run.mode !== 'arcade') {
-    run.fruits.push(makeFruit(run, radius, FRUIT.centerX, FRUIT.centerY, 0, 0));
+    const fruit = makeFruit(run, radius, FRUIT.centerX, FRUIT.centerY, 0, 0);
+    run.fruits.push(fruit);
+    const bubble = run.mode === 'survival' ? placeBubble(run, fruit) : null;
+    if (bubble) run.bubbles.push(bubble);
   } else {
     const spec = arcadeSpec(run.round, run.rng);
     if (spec.twin) {
@@ -268,8 +288,18 @@ export function spawnRound(run: Run): void {
       if (bomb) run.bombs.push(bomb);
     }
   }
-  run.snapshot = { fruits: run.fruits.map((f) => ({ ...f })), bombs: run.bombs.map((b) => ({ ...b })) };
+  run.snapshot = { fruits: run.fruits.map((f) => ({ ...f })), bombs: run.bombs.map((b) => ({ ...b })), bubbles: run.bubbles.map((b) => ({ ...b })) };
   run.events.push({ type: 'spawn' });
+}
+
+/** Survival: sometimes a "+x" bubble over the fruit, off-centre so the cut has to be aimed through it. */
+function placeBubble(run: Run, fruit: Fruit): Bubble | null {
+  const S = CONFIG.survival;
+  if (run.round < S.bubbleFrom || nextFloat(run.rng) >= S.bubbleChance) return null;
+  const angle = nextRange(run.rng, 0, Math.PI * 2);
+  const value = Math.round(nextRange(run.rng, S.bubbleMin, S.bubbleMax));
+  const distance = fruit.radius * S.bubbleOffset;
+  return { id: run.nextId++, x: fruit.x + Math.cos(angle) * distance, y: fruit.y + Math.sin(angle) * distance, r: S.bubbleRadius, value };
 }
 
 /** A bomb somewhere clear of the fruit. */
@@ -361,26 +391,6 @@ export function stepRun(run: Run, input: RunInput): void {
   if (input.cut) handleCut(run, input.cut.a, input.cut.b);
 }
 
-/**
- * Survival: a miss does not end the run. What it was over the tolerance by comes off the tolerance
- * for good; if too little is left for the next fruit, the run is over.
- */
-function loseMargin(run: Run, deviation: number): void {
-  const lost = (deviation - run.tolerance) * CONFIG.survival.penaltyFactor;
-  const before = run.penalty;
-  run.penalty += lost;
-  const remaining = toleranceFor('survival', run.round) - run.penalty;
-  run.events.push({ type: 'margin', lost, remaining: Math.max(0, remaining) });
-  if (remaining < CONFIG.survival.minTolerance) {
-    run.penaltyBeforeFail = before; // a retry takes this last miss back
-    fail(run, 'budget');
-    return; // the fruit stays, so a retry can bring it back
-  }
-  run.fruits = [];
-  run.bombs = [];
-  run.cooldown = FRUIT.classicCooldown;
-}
-
 function handleCut(run: Run, a: Vec, b: Vec): void {
   // A bomb on the line voids the cut and costs a strike.
   const hit = run.bombs.filter((bomb) => segmentHitsCircle(a, b, bomb, bomb.r));
@@ -409,7 +419,14 @@ function handleCut(run: Run, a: Vec, b: Vec): void {
     pieces.push({ kind: f.kind, shape: f.shape, radius: f.radius, x: f.x, y: f.y, rotation: f.rotation, fraction: ev.fraction });
   }
 
-  const ok = worst <= run.tolerance;
+  // Survival: every cut is paid for out of the margin; bubbles on the line add to it first.
+  const collected = run.mode === 'survival' ? run.bubbles.filter((bubble) => segmentHitsCircle(a, b, bubble, bubble.r)) : [];
+  const gained = collected.reduce((sum, bubble) => sum + bubble.value, 0);
+  const pool = Math.min(CONFIG.survival.maxMargin, run.margin + gained);
+  const lost = worst * lossMultiplierFor(run.round);
+  const limit = run.mode === 'survival' ? survivalAllowed(pool, run.round) : run.tolerance;
+
+  const ok = worst <= limit;
   if (ok) {
     const rating = ratingFor(worst);
     const accuracy = accuracyFor(worst);
@@ -420,25 +437,31 @@ function handleCut(run: Run, a: Vec, b: Vec): void {
     run.accuracySum += accuracy * pieces.length;
     if (rating === 'perfect') run.perfects += pieces.length;
     run.round += 1;
+    if (run.mode === 'survival') run.margin = pool - lost;
     if (run.mode === 'arcade') {
       const bonus = ARCADE.timeBonus + (rating === 'perfect' ? ARCADE.perfectTimeBonus : 0);
       run.timeLeft = Math.min(ARCADE.maxTime, run.timeLeft + bonus);
     }
-    run.events.push({ type: 'cut', ok, a, b, pieces, deviation: worst, tolerance: run.tolerance, rating, points, combo: run.combo });
+    run.events.push({ type: 'cut', ok, a, b, pieces, deviation: worst, tolerance: limit, rating, points, combo: run.combo, bubbles: collected.map(({ x, y, value }) => ({ x, y, value })) });
+    if (run.mode === 'survival') run.events.push({ type: 'margin', lost, gained, remaining: run.margin });
     run.fruits = [];
     run.bombs = [];
+    run.bubbles = [];
     run.cooldown = run.mode === 'arcade' ? FRUIT.arcadeCooldown : FRUIT.classicCooldown;
     return;
   }
 
-  run.events.push({ type: 'cut', ok, a, b, pieces, deviation: worst, tolerance: run.tolerance, rating: 'miss', points: 0, combo: 0 });
+  run.events.push({ type: 'cut', ok, a, b, pieces, deviation: worst, tolerance: limit, rating: 'miss', points: 0, combo: 0, bubbles: [] });
   run.combo = 0;
   if (run.mode === 'classic') {
     fail(run, 'tolerance');
     return;
   }
   if (run.mode === 'survival') {
-    loseMargin(run, worst);
+    // Not enough margin for this cut: the run is over, with the fruit still there so a try can bring it back.
+    run.marginBeforeFail = run.margin;
+    run.events.push({ type: 'margin', lost, gained: 0, remaining: 0 });
+    fail(run, 'budget');
     return;
   }
   // Arcade: the fruit is lost; carry on unless that was the last strike.
@@ -469,7 +492,8 @@ export function restartRun(run: Run): boolean {
   } else if (run.snapshot) {
     run.fruits = run.snapshot.fruits.map((f) => ({ ...f }));
     run.bombs = run.snapshot.bombs.map((b) => ({ ...b }));
-    if (run.mode === 'survival') run.penalty = run.penaltyBeforeFail;
+    run.bubbles = run.snapshot.bubbles.map((b) => ({ ...b }));
+    if (run.mode === 'survival') run.margin = run.marginBeforeFail;
     run.tolerance = currentTolerance(run);
     run.cooldown = 0;
   }
@@ -497,11 +521,13 @@ export function debugRun(run: Run): Record<string, unknown> {
     tolerance: run.tolerance,
     timeLeft: run.timeLeft,
     strikes: run.strikes,
-    penalty: run.penalty,
+    margin: run.margin,
+    lossMultiplier: lossMultiplierFor(run.round),
     restarts: run.restarts,
     cooldown: run.cooldown,
     fruits: run.fruits.map((f) => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, radius: f.radius, polygon: fruitPolygon(f) })),
     bombs: run.bombs.map((b) => ({ id: b.id, x: b.x, y: b.y, r: b.r })),
+    bubbles: run.bubbles.map((b) => ({ id: b.id, x: b.x, y: b.y, r: b.r, value: b.value })),
   };
 }
 
