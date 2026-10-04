@@ -89,7 +89,6 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
   let watchedRewardedThisRun = false;
   let lastInterstitialAt: number | null = null;
   let result: ResultInfo | null = null;
-  let lastSplit = '';
   let pendingFlash: { x: number; y: number; text: string; sub?: string; tone: Tone } | null = null;
 
   const skinById = (id: string): Skin => catalog.find((s) => s.id === id) ?? catalog.find((s) => s.id === CONFIG.defaultSkin) ?? BUNDLED_SKINS[0]!;
@@ -432,7 +431,6 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
         ui.setMarker(worst.fraction * 100);
         const first = event.pieces[0]!;
         const split = `${pct(worst.fraction)} | ${pct(1 - worst.fraction)}`;
-        lastSplit = split;
         const labels = { perfect: 'Perfect!', great: 'Great!', good: 'Nice', miss: 'Uneven' } as const;
         // Above the fruit, so the two halves stay in view.
         const flash = { x: first.x, y: Math.min(560, Math.max(180, first.y - first.radius - 34)), text: labels[event.rating], sub: split, tone: toneFor(event) };
@@ -448,8 +446,9 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
         // Survival: what the cut cost, and what the bubbles gave back.
         const base = pendingFlash ?? { x: 180, y: 250, text: '', tone: 'miss' as Tone };
         pendingFlash = null;
-        const gained = event.gained > 0 ? ` · +${event.gained} bubble` : '';
-        ui.flash({ ...base, sub: `${lastSplit} · −${event.lost.toFixed(1)}${gained}` });
+        // Just the change in margin: "−1.9", or "+4 −1.9" when a bubble gave some back.
+        const gained = event.gained > 0 ? `+${event.gained} ` : '';
+        ui.flash({ ...base, sub: `${gained}−${event.lost.toFixed(1)}` });
         break;
       }
       case 'bomb':

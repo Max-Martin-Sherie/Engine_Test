@@ -370,7 +370,7 @@ test.describe('survival', () => {
     const fruit = first.fruits[0]!;
     const bubble = first.bubbles[0]!;
     await cutFruit(page, 3, Math.atan2(bubble.y - fruit.y, bubble.x - fruit.x));
-    await expect(page.getByText(/\+\d+ bubble/)).toBeVisible();
+    await expect(page.getByText(/^\+\d+ −\d/)).toBeVisible();
     await shotNow(page, '16-survival-bubble');
     const afterBubble = (await runDump(page))!;
     expect(afterBubble.margin).toBeGreaterThan(25 + bubble.value - 4);
