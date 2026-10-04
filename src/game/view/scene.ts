@@ -17,6 +17,7 @@ import {
   type Vec,
 } from '../sim';
 import { drawFruit } from './fruitArt';
+import { loadFruitSheet, makeFruitBody } from './fruitSprites';
 import { COLORS, FRUIT_COLORS } from './palette';
 
 const { width: W, height: H } = CONFIG.world;
@@ -31,6 +32,8 @@ export interface Frame {
 }
 
 export interface Scene {
+  /** Resolves once the optional painted fruit sheet has loaded (or there is none). */
+  ready: Promise<void>;
   update(frame: Frame): void;
   setSkin(skin: Skin): void;
   /** The drag in progress (world coordinates), or null. */
@@ -101,6 +104,7 @@ const HALF_SECONDS = 0.95;
 const GRAVITY = 460;
 
 export function createScene(field: Container): Scene {
+  const ready = loadFruitSheet();
   const visual = createRng(20240601); // looks only; the simulation has its own seeded RNG
   const random = (min: number, max: number): number => nextRange(visual, min, max);
 
@@ -152,9 +156,7 @@ export function createScene(field: Container): Scene {
 
   function makeFruitSprite(radius: number, shape: FruitShape): Container {
     const root = new Container();
-    const g = new Graphics();
-    drawFruit(g, shape, { x: 0, y: 0, rotation: 0, radius });
-    root.addChild(g);
+    root.addChild(makeFruitBody(shape, { x: 0, y: 0, rotation: 0, radius }));
     return root;
   }
 
@@ -285,6 +287,7 @@ export function createScene(field: Container): Scene {
   }
 
   return {
+    ready,
     setSkin(next) {
       skin = next;
       paintKnife(knifeBody);
@@ -304,8 +307,7 @@ export function createScene(field: Container): Scene {
       for (const piece of pieces) {
         for (const side of [1, -1] as const) {
           const root = new Container();
-          const g = new Graphics();
-          drawFruit(g, piece.shape, piece);
+          const g = makeFruitBody(piece.shape, piece);
           // A half-plane on one side of the cut line hides the other half.
           const mask = new Graphics()
             .poly([
@@ -376,10 +378,9 @@ export function createScene(field: Container): Scene {
       const cols = 4;
       const radius = 38;
       kinds.forEach((kind, i) => {
-        const g = new Graphics();
         const x = 48 + (i % cols) * 88;
         const y = 84 + Math.floor(i / cols) * 112;
-        drawFruit(g, makeFruitShape(kind, rng, CONFIG.fruit.segments), { x, y, rotation: 0, radius });
+        const g = makeFruitBody(makeFruitShape(kind, rng, CONFIG.fruit.segments), { x, y, rotation: 0, radius });
         galleryLayer.addChild(g);
       });
     },

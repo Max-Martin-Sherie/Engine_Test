@@ -485,7 +485,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
   // Dev tool (?gallery): every fruit laid out, to review the art.
   const gallery = import.meta.env.DEV ? params.get('gallery') : null;
   if (gallery !== null) {
-    scene.showGallery(FRUIT_KINDS);
+    void scene.ready.then(() => scene.showGallery(FRUIT_KINDS));
     ui.show('none');
   }
 
