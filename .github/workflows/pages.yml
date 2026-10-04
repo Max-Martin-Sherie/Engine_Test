@@ -3,6 +3,7 @@ name: Playable builds
 # Publishes every game branch (everything except main) as its own page on GitHub Pages:
 #   https://<user>.github.io/<repo>/            a list of the games
 #   https://<user>.github.io/<repo>/<branch>/   the game on that branch
+#   https://<user>.github.io/<repo>/guides/<name>.pdf   the PDF guides (docs/pdf) of every branch
 # Ads are fake in a browser and nothing is saved anywhere but the player's own browser.
 
 on:
@@ -45,7 +46,16 @@ jobs:
             git worktree add "$RUNNER_TEMP/$branch" "origin/$branch"
             (cd "$RUNNER_TEMP/$branch" && npm ci && npx vite build --outDir "$GITHUB_WORKSPACE/site/$branch" --emptyOutDir)
             echo "<li><a style=\"color:#9be564\" href=\"$branch/\">$branch</a></li>" >> site/index.html
+            # The branch's PDF guides (docs/pdf) are published too.
+            mkdir -p site/guides
+            cp "$RUNNER_TEMP/$branch"/docs/pdf/*.pdf site/guides/ 2>/dev/null || true
             echo "::endgroup::"
+          done
+          echo '</ul><h2>Guides (PDF)</h2><ul>' >> site/index.html
+          for pdf in site/guides/*.pdf; do
+            [ -e "$pdf" ] || continue
+            name=$(basename "$pdf")
+            echo "<li><a style=\"color:#9be564\" href=\"guides/$name\">${name%.pdf}</a></li>" >> site/index.html
           done
           echo '</ul></body>' >> site/index.html
 
