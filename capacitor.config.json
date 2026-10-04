@@ -1,6 +1,6 @@
 {
-  "appId": "com.example.game",
-  "appName": "Game Engine",
+  "appId": "com.maxmartin.fruitslice",
+  "appName": "Fruit Slice",
   "webDir": "dist",
-  "backgroundColor": "#0c2a33"
+  "backgroundColor": "#150f1f"
 }
