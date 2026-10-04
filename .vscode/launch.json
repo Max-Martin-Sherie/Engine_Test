@@ -9,6 +9,9 @@
       "request": "launch",
       "url": "http://localhost:5173",
       "webRoot": "${workspaceFolder}",
+      // Only load source maps for our own code; some packages (e.g. @capacitor/core) reference
+      // .map files they don't ship, which would spam "Could not read source map" warnings.
+      "resolveSourceMapLocations": ["${workspaceFolder}/**", "!**/node_modules/**"],
       "preLaunchTask": "dev: run in browser"
     }
   ]
