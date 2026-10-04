@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { WORLD } from '../src/engine/core/config';
-import { clientToWorldX, fitWorld } from '../src/engine/core/layout';
+import { clientToWorld, clientToWorldX, fitWorld } from '../src/engine/core/layout';
 import { computeStageLayout } from '../src/engine/ui/stage';
 
 const NO_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -59,6 +59,29 @@ describe('clientToWorldX', () => {
   it('accounts for scale', () => {
     const fit = fitWorld(720, 1280);
     expect(clientToWorldX(360, 0, fit)).toBe(180);
+  });
+});
+
+describe('clientToWorld (points)', () => {
+  it('maps both axes and agrees with clientToWorldX', () => {
+    const fit = fitWorld(412, 839);
+    const p = clientToWorld(206, 419.5, 0, 0, fit);
+    expect(p.x).toBeCloseTo(180, 6);
+    expect(p.y).toBeCloseTo(320, 6); // the centre of the screen is the centre of the world
+    expect(clientToWorld(100, 0, 0, 0, fit).x).toBeCloseTo(clientToWorldX(100, 0, fit), 9);
+  });
+
+  it('maps the field corners on a wide window, and bars to outside the world', () => {
+    const fit = fitWorld(1100, 640);
+    expect(clientToWorld(370, 0, 0, 0, fit)).toEqual({ x: 0, y: 0 });
+    expect(clientToWorld(730, 640, 0, 0, fit)).toEqual({ x: 360, y: 640 });
+    expect(clientToWorld(0, 0, 0, 0, fit).x).toBe(-370);
+  });
+
+  it('accounts for the canvas origin, and survives a zero-sized window', () => {
+    const fit = fitWorld(360, 640);
+    expect(clientToWorld(150, 250, 100, 200, fit)).toEqual({ x: 50, y: 50 });
+    expect(clientToWorld(1, 1, 0, 0, fitWorld(0, 0))).toEqual({ x: 0, y: 0 });
   });
 });
 

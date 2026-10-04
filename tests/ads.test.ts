@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { guardAdService, type AdService } from '../src/engine/services/ads';
 import type { AnalyticsService } from '../src/engine/services/analytics';
-import { FakeAdService, FAKE_AD_DURATION_MS, parseFakeAdMode } from '../src/engine/services/fakeAds';
+import {
+  FakeAdService,
+  FAKE_AD_DURATION_MS,
+  FAKE_INTERSTITIAL_DURATION_MS,
+  parseFakeAdMode,
+} from '../src/engine/services/fakeAds';
 
 const analytics: AnalyticsService & { events: string[] } = {
   events: [],
@@ -21,12 +26,18 @@ describe('guardAdService', () => {
       isRewardedReady: boom,
       preloadRewarded: boom,
       showRewarded: boom,
+      isInterstitialReady: boom,
+      preloadInterstitial: () => Promise.reject(new Error('y')),
+      showInterstitial: boom,
     };
     const guarded = guardAdService(throwing, analytics);
     await expect(guarded.init()).resolves.toBeUndefined();
     expect(guarded.isRewardedReady()).toBe(false);
     await expect(guarded.preloadRewarded()).resolves.toBeUndefined();
     await expect(guarded.showRewarded()).resolves.toBe(false);
+    expect(guarded.isInterstitialReady()).toBe(false);
+    await expect(guarded.preloadInterstitial()).resolves.toBeUndefined();
+    await expect(guarded.showInterstitial()).resolves.toBe(false);
     expect(analytics.events).toContain('ad_service_error');
   });
 
@@ -36,10 +47,15 @@ describe('guardAdService', () => {
       isRewardedReady: () => true,
       preloadRewarded: async () => {},
       showRewarded: async () => true,
+      isInterstitialReady: () => true,
+      preloadInterstitial: async () => {},
+      showInterstitial: async () => true,
     };
     const guarded = guardAdService(ok, analytics);
     expect(guarded.isRewardedReady()).toBe(true);
     await expect(guarded.showRewarded()).resolves.toBe(true);
+    expect(guarded.isInterstitialReady()).toBe(true);
+    await expect(guarded.showInterstitial()).resolves.toBe(true);
   });
 });
 
@@ -129,5 +145,48 @@ describe('FakeAdService', () => {
     const shown = ads.showRewarded();
     await vi.advanceTimersByTimeAsync(FAKE_AD_DURATION_MS);
     await expect(shown).resolves.toBe(false);
+  });
+
+  it('interstitial: loads, plays the short ad, and is consumed', async () => {
+    const ads = new FakeAdService('ok');
+    expect(ads.isInterstitialReady()).toBe(false);
+    const init = ads.init();
+    await vi.runAllTimersAsync();
+    await init;
+    expect(ads.isInterstitialReady()).toBe(true);
+
+    let result: boolean | undefined;
+    const shown = ads.showInterstitial().then((r) => (result = r));
+    await vi.advanceTimersByTimeAsync(FAKE_INTERSTITIAL_DURATION_MS - 1);
+    expect(result).toBeUndefined();
+    expect(overlays.some((o) => !o.removed)).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
+    await shown;
+    expect(result).toBe(true);
+    expect(overlays.every((o) => o.removed)).toBe(true);
+    expect(FAKE_INTERSTITIAL_DURATION_MS).toBeLessThan(FAKE_AD_DURATION_MS); // "shorter ad"
+
+    expect(ads.isInterstitialReady()).toBe(false);
+    await expect(ads.showInterstitial()).resolves.toBe(false);
+  });
+
+  it('interstitial: rewarded and interstitial load independently', async () => {
+    const ads = new FakeAdService('ok');
+    const init = ads.init();
+    await vi.runAllTimersAsync();
+    await init;
+    const shown = ads.showInterstitial();
+    await vi.advanceTimersByTimeAsync(FAKE_INTERSTITIAL_DURATION_MS);
+    await shown;
+    expect(ads.isRewardedReady()).toBe(true); // untouched
+  });
+
+  it('no-fill: no interstitial either', async () => {
+    const ads = new FakeAdService('no-fill');
+    const init = ads.init();
+    await vi.runAllTimersAsync();
+    await init;
+    expect(ads.isInterstitialReady()).toBe(false);
+    await expect(ads.showInterstitial()).resolves.toBe(false);
   });
 });

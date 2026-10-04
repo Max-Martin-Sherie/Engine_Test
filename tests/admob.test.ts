@@ -1,124 +1,16 @@
-import {
-  AdmobConsentStatus,
-  RewardAdPluginEvents,
-  type AdMobPlugin,
-  type AdmobConsentInfo,
-} from '@capacitor-community/admob';
+import { AdmobConsentStatus, RewardAdPluginEvents } from '@capacitor-community/admob';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  AdMobAdService,
   REWARDED_SAFETY_TIMEOUT_MS,
   resolveRewardedConfig,
   TEST_REWARDED_ANDROID,
   TEST_REWARDED_IOS,
 } from '../src/engine/services/admobAds';
-import type { AnalyticsService } from '../src/engine/services/analytics';
+import { analytics, consent, FakeAdMob, makeService, readyService as ready } from './helpers/fakeAdMob';
 
-type Listener = (...args: unknown[]) => void;
-
-function consent(over: Partial<AdmobConsentInfo> = {}): AdmobConsentInfo {
-  return {
-    status: AdmobConsentStatus.NOT_REQUIRED,
-    isConsentFormAvailable: false,
-    canRequestAds: true,
-    // The plugin's index does not export this enum as a value, so use its string form.
-    privacyOptionsRequirementStatus:
-      'NOT_REQUIRED' as AdmobConsentInfo['privacyOptionsRequirementStatus'],
-    ...over,
-  };
-}
-
-/** A scripted stand-in for the AdMob plugin that records every call in order. */
-class FakeAdMob {
-  calls: string[] = [];
-  listeners = new Map<string, Set<Listener>>();
-  removed = 0;
-
-  consentInfo: AdmobConsentInfo = consent();
-  afterForm: AdmobConsentInfo = consent({ status: AdmobConsentStatus.OBTAINED });
-  attStatus: 'authorized' | 'notDetermined' = 'authorized';
-  failConsentInfo = false;
-  failLoad = false;
-  failAddListenerOn: string | null = null;
-  /** What happens when showRewardVideoAd() is called. Default: never settle, like Android. */
-  onShow: () => Promise<unknown> = () => new Promise(() => {});
-
-  emit(event: string, ...args: unknown[]): void {
-    for (const fn of [...(this.listeners.get(event) ?? [])]) fn(...args);
-  }
-
-  listenerCount(): number {
-    let n = 0;
-    for (const set of this.listeners.values()) n += set.size;
-    return n;
-  }
-
-  initialize = async (): Promise<void> => {
-    this.calls.push('initialize');
-  };
-  requestConsentInfo = async (): Promise<AdmobConsentInfo> => {
-    this.calls.push('requestConsentInfo');
-    if (this.failConsentInfo) throw new Error('network');
-    return this.consentInfo;
-  };
-  showConsentForm = async (): Promise<AdmobConsentInfo> => {
-    this.calls.push('showConsentForm');
-    return this.afterForm;
-  };
-  trackingAuthorizationStatus = async (): Promise<{ status: 'authorized' | 'notDetermined' }> => {
-    this.calls.push('trackingAuthorizationStatus');
-    return { status: this.attStatus };
-  };
-  requestTrackingAuthorization = async (): Promise<void> => {
-    this.calls.push('requestTrackingAuthorization');
-  };
-  prepareRewardVideoAd = async (options: { adId: string; isTesting?: boolean }) => {
-    this.calls.push('prepareRewardVideoAd');
-    if (this.failLoad) throw new Error('no fill');
-    return { adUnitId: options.adId };
-  };
-  showRewardVideoAd = (): Promise<unknown> => {
-    this.calls.push('showRewardVideoAd');
-    return this.onShow();
-  };
-  addListener = async (event: string, fn: Listener) => {
-    this.calls.push(`addListener:${event}`);
-    if (event === this.failAddListenerOn) throw new Error('cannot listen');
-    const set = this.listeners.get(event) ?? new Set<Listener>();
-    set.add(fn);
-    this.listeners.set(event, set);
-    return {
-      remove: async () => {
-        this.removed++;
-        set.delete(fn);
-      },
-    };
-  };
-}
-
-const analytics: AnalyticsService & { events: string[] } = {
-  events: [],
-  track(event) {
-    this.events.push(event);
-  },
-};
-
-function makeService(admob: FakeAdMob, timeoutMs?: number): AdMobAdService {
-  return new AdMobAdService(
-    {
-      AdMob: admob as unknown as AdMobPlugin,
-      AdmobConsentStatus,
-      RewardAdPluginEvents,
-    },
-    { adId: TEST_REWARDED_ANDROID, isTesting: true },
-    analytics,
-    timeoutMs,
-  );
-}
-
-async function readyService(admob: FakeAdMob, timeoutMs?: number): Promise<AdMobAdService> {
-  const service = makeService(admob, timeoutMs);
-  await service.init();
+/** Init-and-assert helper: the rewarded ad must be loaded. */
+async function readyService(admob: FakeAdMob, timeoutMs?: number) {
+  const service = await ready(admob, timeoutMs);
   expect(service.isRewardedReady()).toBe(true);
   return service;
 }

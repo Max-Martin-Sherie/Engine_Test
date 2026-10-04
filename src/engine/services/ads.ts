@@ -1,18 +1,26 @@
 import type { AnalyticsService } from './analytics';
 
 /**
- * Rewarded ads, as the game sees them. No method may throw or reject into game code: failures
- * mean "not ready" / `false`.
+ * Ads, as the game sees them. No method may throw or reject into game code: failures mean
+ * "not ready" / `false`.
  */
 export interface AdService {
-  /** Sets the SDK up (consent, ATT, first preload). Resolves when done; never rejects. */
+  /** Sets the SDK up (consent, ATT, first preloads). Resolves when done; never rejects. */
   init(): Promise<void>;
+
   /** True when a rewarded ad is loaded and can be shown right now. */
   isRewardedReady(): boolean;
   /** Starts loading the next rewarded ad. Safe to call at any time. */
   preloadRewarded(): Promise<void>;
-  /** Shows the loaded ad. Resolves true only if the user earned the reward. */
+  /** Shows the loaded rewarded ad. Resolves true only if the user earned the reward. */
   showRewarded(): Promise<boolean>;
+
+  /** True when an interstitial (a short ad between screens) is loaded. */
+  isInterstitialReady(): boolean;
+  /** Starts loading the next interstitial. Safe to call at any time. */
+  preloadInterstitial(): Promise<void>;
+  /** Shows the loaded interstitial. Resolves true if it was shown and closed, false if it could not be shown. */
+  showInterstitial(): Promise<boolean>;
 }
 
 /**
@@ -23,36 +31,36 @@ export function guardAdService(inner: AdService, analytics: AnalyticsService): A
   const fail = (method: string, error: unknown): void => {
     analytics.track('ad_service_error', { method, message: String(error) });
   };
+  const safeVoid = async (method: string, run: () => Promise<void>): Promise<void> => {
+    try {
+      await run();
+    } catch (error) {
+      fail(method, error);
+    }
+  };
+  const safeBool = async (method: string, run: () => Promise<boolean>): Promise<boolean> => {
+    try {
+      return await run();
+    } catch (error) {
+      fail(method, error);
+      return false;
+    }
+  };
+  const safeReady = (method: string, run: () => boolean): boolean => {
+    try {
+      return run();
+    } catch (error) {
+      fail(method, error);
+      return false;
+    }
+  };
   return {
-    async init() {
-      try {
-        await inner.init();
-      } catch (error) {
-        fail('init', error);
-      }
-    },
-    isRewardedReady() {
-      try {
-        return inner.isRewardedReady();
-      } catch (error) {
-        fail('isRewardedReady', error);
-        return false;
-      }
-    },
-    async preloadRewarded() {
-      try {
-        await inner.preloadRewarded();
-      } catch (error) {
-        fail('preloadRewarded', error);
-      }
-    },
-    async showRewarded() {
-      try {
-        return await inner.showRewarded();
-      } catch (error) {
-        fail('showRewarded', error);
-        return false;
-      }
-    },
+    init: () => safeVoid('init', () => inner.init()),
+    isRewardedReady: () => safeReady('isRewardedReady', () => inner.isRewardedReady()),
+    preloadRewarded: () => safeVoid('preloadRewarded', () => inner.preloadRewarded()),
+    showRewarded: () => safeBool('showRewarded', () => inner.showRewarded()),
+    isInterstitialReady: () => safeReady('isInterstitialReady', () => inner.isInterstitialReady()),
+    preloadInterstitial: () => safeVoid('preloadInterstitial', () => inner.preloadInterstitial()),
+    showInterstitial: () => safeBool('showInterstitial', () => inner.showInterstitial()),
   };
 }

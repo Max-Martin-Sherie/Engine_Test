@@ -1,13 +1,15 @@
 import type { AdService } from './ads';
 
 /**
- * ok:      ad loads, plays for 2 s, reward granted
- * no-fill: ads never load (isRewardedReady stays false)
- * skip:    ad loads and plays, but the user closes it early (no reward)
+ * ok:      ads load; a rewarded ad plays for 2 s and grants the reward
+ * no-fill: ads never load (nothing is ever ready)
+ * skip:    ads load and play, but a rewarded ad is closed early (no reward)
  */
 export type FakeAdMode = 'ok' | 'no-fill' | 'skip';
 
 export const FAKE_AD_DURATION_MS = 2000;
+/** Interstitials are the short kind: shown between screens, no reward. */
+export const FAKE_INTERSTITIAL_DURATION_MS = 1000;
 const FAKE_LOAD_MS = 250;
 
 export function parseFakeAdMode(value: string | null): FakeAdMode {
@@ -16,46 +18,71 @@ export function parseFakeAdMode(value: string | null): FakeAdMode {
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Browser stand-in for AdMob: a grey "Test ad" overlay for 2 seconds. */
+/** Browser stand-in for AdMob: a grey "Test ad" overlay (2 s rewarded, 1 s interstitial). */
 export class FakeAdService implements AdService {
-  private ready = false;
-  private loading = false;
+  private rewardedReady = false;
+  private rewardedLoading = false;
+  private interstitialReady = false;
+  private interstitialLoading = false;
 
   constructor(private readonly mode: FakeAdMode) {}
 
   async init(): Promise<void> {
-    await this.preloadRewarded();
+    await Promise.all([this.preloadRewarded(), this.preloadInterstitial()]);
   }
 
   isRewardedReady(): boolean {
-    return this.ready;
+    return this.rewardedReady;
   }
 
   async preloadRewarded(): Promise<void> {
-    if (this.ready || this.loading) return;
-    this.loading = true;
+    if (this.rewardedReady || this.rewardedLoading) return;
+    this.rewardedLoading = true;
     await sleep(FAKE_LOAD_MS);
-    this.ready = this.mode !== 'no-fill';
-    this.loading = false;
+    this.rewardedReady = this.mode !== 'no-fill';
+    this.rewardedLoading = false;
   }
 
   async showRewarded(): Promise<boolean> {
-    if (!this.ready) return false;
-    this.ready = false; // a loaded ad can be shown once
-    const overlay = this.createOverlay();
-    document.body.append(overlay);
-    try {
-      await sleep(FAKE_AD_DURATION_MS);
-    } finally {
-      overlay.remove();
-    }
+    if (!this.rewardedReady) return false;
+    this.rewardedReady = false; // a loaded ad can be shown once
+    await this.playOverlay('Test ad', this.mode === 'skip' ? 'Simulating: user skips' : 'Simulating a rewarded video', FAKE_AD_DURATION_MS);
     return this.mode !== 'skip';
   }
 
-  private createOverlay(): HTMLElement {
+  isInterstitialReady(): boolean {
+    return this.interstitialReady;
+  }
+
+  async preloadInterstitial(): Promise<void> {
+    if (this.interstitialReady || this.interstitialLoading) return;
+    this.interstitialLoading = true;
+    await sleep(FAKE_LOAD_MS);
+    this.interstitialReady = this.mode !== 'no-fill';
+    this.interstitialLoading = false;
+  }
+
+  async showInterstitial(): Promise<boolean> {
+    if (!this.interstitialReady) return false;
+    this.interstitialReady = false;
+    await this.playOverlay('Test ad', 'Short test ad', FAKE_INTERSTITIAL_DURATION_MS);
+    return true;
+  }
+
+  private async playOverlay(title: string, hint: string, ms: number): Promise<void> {
+    const overlay = this.createOverlay(title, hint);
+    document.body.append(overlay);
+    try {
+      await sleep(ms);
+    } finally {
+      overlay.remove();
+    }
+  }
+
+  private createOverlay(titleText: string, hintText: string): HTMLElement {
     const overlay = document.createElement('div');
     overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-label', 'Test ad');
+    overlay.setAttribute('aria-label', titleText);
     overlay.style.cssText = [
       'position:fixed',
       'inset:0',
@@ -72,9 +99,9 @@ export class FakeAdService implements AdService {
       'touch-action:none',
     ].join(';');
     const title = document.createElement('div');
-    title.textContent = 'Test ad';
+    title.textContent = titleText;
     const hint = document.createElement('div');
-    hint.textContent = this.mode === 'skip' ? 'Simulating: user skips' : 'Simulating a rewarded video';
+    hint.textContent = hintText;
     hint.style.cssText = 'font:600 14px system-ui,sans-serif;opacity:0.8;letter-spacing:0';
     overlay.append(title, hint);
     return overlay;

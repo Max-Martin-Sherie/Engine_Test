@@ -21,9 +21,11 @@ function requireElement(id: string): HTMLElement {
  */
 export function boot(createGame: GameFactory): void {
   const params = new URLSearchParams(window.location.search);
-  const { ads, analytics } = createServices({ fakeAdMode: parseFakeAdMode(params.get('ads')) });
-  const input = new PointerInput();
-  const view = createEngineView(requireElement('game'));
+  const { ads, analytics, haptics, audio } = createServices({ fakeAdMode: parseFakeAdMode(params.get('ads')) });
+  const gameHost = requireElement('game');
+  // Drag gestures only start on the game canvas, never on DOM buttons laid over it.
+  const input = new PointerInput(window, gameHost);
+  const view = createEngineView(gameHost);
 
   let loop: FixedLoop | undefined;
   const context: EngineContext = {
@@ -32,6 +34,8 @@ export function boot(createGame: GameFactory): void {
     view,
     ads,
     analytics,
+    haptics,
+    audio,
     params,
     uiRoot: requireElement('ui'),
     resetClock: () => loop?.resetClock(),
@@ -54,6 +58,8 @@ export function boot(createGame: GameFactory): void {
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) runningLoop.resetClock();
   });
+  // Browsers only start audio after a user gesture; unlock it on every press (it is cheap once running).
+  window.addEventListener('pointerdown', () => audio.unlock(), { passive: true });
   // The game owns the screen: no long-press menu, no iOS pinch gesture.
   window.addEventListener('contextmenu', (e) => e.preventDefault());
   document.addEventListener('gesturestart', (e) => e.preventDefault());
