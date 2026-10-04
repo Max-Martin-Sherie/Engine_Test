@@ -1,15 +1,27 @@
-import { describe, expect, it } from 'vitest';
-import { CONFIG, createState, debugSnapshot, drainEvents, revive, scoreOf, step, timeOf, type GameState, type Input } from '../src/sim';
+import { describe, expect, it, vi } from 'vitest';
+import { CONFIG, createState, drainEvents, revive, scoreOf, step, timeOf, type GameState, type Input } from '../src/sim';
 
 /**
- * These tests cover the engine's lifecycle (ticks, score, death, revive, events, determinism)
- * using the placeholder rule from sim/game.ts, which ends a run every few seconds. When you
- * replace that rule, keep these passing and add tests for your own rules.
+ * Engine lifecycle tests: ticks, score, death, revive, events, determinism.
+ *
+ * sim/game.ts is mocked with a trivial rule (the player dies every DIE_EVERY ticks, unless
+ * invulnerable), so these tests pass unchanged on every game branch whatever its real rules are.
+ * Test your own rules in a separate file.
  */
+const DIE_EVERY = 300;
+
+vi.mock('../src/sim/game', () => ({
+  createGameData: () => ({}),
+  updateGame: (state: { tick: number; invuln: number }) => state.invuln <= 0 && state.tick % DIE_EVERY === 0,
+  onRevive: () => {},
+  syncGamePrev: () => {},
+  debugSnapshot: () => ({}),
+}));
 
 const { dt, ticksPerSecond } = CONFIG;
 const STILL: Input = { targetX: null };
-const PERIOD = Math.round(CONFIG.placeholder.dieEverySeconds * ticksPerSecond);
+const PERIOD = DIE_EVERY;
+const DIE_EVERY_SECONDS = DIE_EVERY / ticksPerSecond;
 
 function run(state: GameState, steps: number, inputFor: (i: number) => Input = () => STILL): void {
   for (let i = 0; i < steps; i++) step(state, inputFor(i));
@@ -52,10 +64,7 @@ describe('state', () => {
     }
   });
 
-  it('gives tests a debug snapshot', () => {
-    expect(debugSnapshot(createState(1))).toEqual(expect.any(Object));
   });
-});
 
 describe('ticking and score', () => {
   it('counts fixed steps; score is whole seconds survived', () => {
@@ -76,7 +85,7 @@ describe('death', () => {
     const state = createState(1);
     const steps = runUntilDead(state);
     expect(steps).toBe(PERIOD);
-    expect(drainEvents(state)).toEqual([{ type: 'died', score: CONFIG.placeholder.dieEverySeconds }]);
+    expect(drainEvents(state)).toEqual([{ type: 'died', score: DIE_EVERY_SECONDS }]);
     expect(drainEvents(state)).toEqual([]); // draining clears
     run(state, PERIOD * 2);
     expect(drainEvents(state)).toEqual([]); // and it never fires again
@@ -115,7 +124,7 @@ describe('revive', () => {
     // The run continues from where it stopped and ends again on the next period boundary.
     runUntilDead(state);
     expect(state.tick).toBe(PERIOD * 2);
-    expect(drainEvents(state)).toEqual([{ type: 'died', score: CONFIG.placeholder.dieEverySeconds * 2 }]);
+    expect(drainEvents(state)).toEqual([{ type: 'died', score: DIE_EVERY_SECONDS * 2 }]);
 
     const dead = structuredClone(state);
     expect(revive(state)).toBe(false); // the second revive is refused
