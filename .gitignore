@@ -20,5 +20,9 @@ e2e/screenshots/*
 .DS_Store
 Thumbs.db
 .idea/
-.vscode/
+# VS Code: share tasks, launch and recommended extensions; keep personal settings local
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 *.log
