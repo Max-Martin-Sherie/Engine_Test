@@ -9,7 +9,8 @@ which is why the guide sheet shows those outlines).
 1. Open ChatGPT (image generation on).
 2. Attach **`art/fruit-guide.png`** (5 x 4 grid: each cell has a grey outline, the fruit's name in the
    top-left corner, and a magenta background).
-3. Paste the prompt below, then send.
+3. Optional but helpful: also attach **`art/fruit-reference.png`** (the game's current placeholder drawings of the same 19 fruit, same order). Then add this sentence at the start of the prompt: *"A second image shows my current rough placeholder drawings of the same 19 fruit in the same order. Use it only to know which fruit is which and roughly what colours I want; the new paintings must look far better."*
+4. Paste the prompt below, then send.
 
 ### The prompt
 

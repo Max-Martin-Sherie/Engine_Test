@@ -375,11 +375,11 @@ export function createScene(field: Container): Scene {
       for (const child of galleryLayer.removeChildren()) child.destroy({ children: true });
       attract.visible = false;
       const rng = createRng(11);
-      const cols = 4;
-      const radius = 38;
+      const cols = 5; // the same order and grid as art/fruit-guide.png
+      const radius = 30;
       kinds.forEach((kind, i) => {
-        const x = 48 + (i % cols) * 88;
-        const y = 84 + Math.floor(i / cols) * 112;
+        const x = 36 + (i % cols) * 72;
+        const y = 150 + Math.floor(i / cols) * 112;
         const g = makeFruitBody(makeFruitShape(kind, rng, CONFIG.fruit.segments), { x, y, rotation: 0, radius });
         galleryLayer.addChild(g);
       });

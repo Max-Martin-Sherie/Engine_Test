@@ -180,7 +180,28 @@ async function prepare(input) {
   await savePng(resolve(root, 'src/game/art/fruits.png'), result.dataUrl);
 }
 
+/** Writes art/fruit-reference.png: the game's current drawn fruit, to show an image generator the idea. */
+async function reference() {
+  const server = await createServer({ root, server: { port: 5198, strictPort: true }, logLevel: 'error' });
+  await server.listen();
+  try {
+    const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
+    const page = await browser.newPage({ viewport: { width: 360, height: 640 }, deviceScaleFactor: 2 });
+    await page.goto('http://localhost:5198/?gallery=1');
+    await page.waitForFunction(() => window.__engine && window.__engine.viewReady === true);
+    await page.waitForTimeout(600);
+    const file = resolve(root, 'art/fruit-reference.png');
+    await mkdir(dirname(file), { recursive: true });
+    await page.screenshot({ path: file });
+    console.log(`wrote ${file}`);
+    await browser.close();
+  } finally {
+    await server.close();
+  }
+}
+
 const [command, argument] = process.argv.slice(2);
 if (command === 'guide') await guide();
 else if (command === 'prepare') await prepare(argument);
-else console.log('usage: node scripts/fruit-art.mjs guide | prepare <generated-sheet.png>');
+else if (command === 'reference') await reference();
+else console.log('usage: node scripts/fruit-art.mjs guide | reference | prepare <generated-sheet.png>');
