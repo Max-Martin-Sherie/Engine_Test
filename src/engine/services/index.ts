@@ -1,15 +1,21 @@
 import { Capacitor } from '@capacitor/core';
 import { guardAdService, type AdService } from './ads';
 import { ConsoleAnalytics, type AnalyticsService } from './analytics';
+import { WebAudioService, type AudioService } from './audio';
 import { FakeAdService, type FakeAdMode } from './fakeAds';
+import { CapacitorHaptics, type HapticsService } from './haptics';
 
 export type { AdService } from './ads';
 export type { AnalyticsService } from './analytics';
+export type { AudioService, NoiseOptions, ToneOptions } from './audio';
 export { parseFakeAdMode, type FakeAdMode } from './fakeAds';
+export type { HapticsService, ImpactKind, NotifyKind } from './haptics';
 
 export interface Services {
   ads: AdService;
   analytics: AnalyticsService;
+  haptics: HapticsService;
+  audio: AudioService;
 }
 
 /**
@@ -22,13 +28,13 @@ class NativeAdService implements AdService {
   constructor(private readonly analytics: AnalyticsService) {}
 
   async init(): Promise<void> {
-    const { createAdMobService, resolveRewardedConfig } = await import('./admobAds');
-    const config = resolveRewardedConfig(Capacitor.getPlatform(), import.meta.env);
-    if (!config) {
+    const { createAdMobService, resolveAdUnits } = await import('./admobAds');
+    const units = resolveAdUnits(Capacitor.getPlatform(), import.meta.env);
+    if (units.rewarded === null && units.interstitial === null) {
       this.analytics.track('ads_disabled', { reason: 'missing_unit_id' });
       return;
     }
-    this.inner = await createAdMobService(config, this.analytics);
+    this.inner = await createAdMobService(units, this.analytics);
     await this.inner.init();
   }
 
@@ -43,6 +49,18 @@ class NativeAdService implements AdService {
   showRewarded(): Promise<boolean> {
     return this.inner?.showRewarded() ?? Promise.resolve(false);
   }
+
+  isInterstitialReady(): boolean {
+    return this.inner?.isInterstitialReady() ?? false;
+  }
+
+  preloadInterstitial(): Promise<void> {
+    return this.inner?.preloadInterstitial() ?? Promise.resolve();
+  }
+
+  showInterstitial(): Promise<boolean> {
+    return this.inner?.showInterstitial() ?? Promise.resolve(false);
+  }
 }
 
 export function createServices(options: { fakeAdMode: FakeAdMode }): Services {
@@ -50,5 +68,10 @@ export function createServices(options: { fakeAdMode: FakeAdMode }): Services {
   const ads: AdService = Capacitor.isNativePlatform()
     ? new NativeAdService(analytics)
     : new FakeAdService(options.fakeAdMode);
-  return { ads: guardAdService(ads, analytics), analytics };
+  return {
+    ads: guardAdService(ads, analytics),
+    analytics,
+    haptics: new CapacitorHaptics(),
+    audio: new WebAudioService(),
+  };
 }

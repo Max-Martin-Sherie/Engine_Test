@@ -4,7 +4,8 @@ A portrait (9:16) mobile web game **engine**. It loads and wires up, ready and t
 
 - a fixed-timestep loop, pointer input, a seeded RNG and safe storage
 - a PixiJS v8 canvas, letterboxed to any screen, handing a game an empty clipped drawing layer
-- Google AdMob rewarded ads on Android/iOS (consent, ATT, events-based reward), fake ads in browsers
+- Google AdMob rewarded ads and interstitials on Android/iOS (consent, ATT, events-based outcomes), fake ads in browsers
+- drag-gesture pointer input, vibration feedback and synthesised sound effects
 - invisible UI helpers: a stage that sits over the play field and handles safe-area insets
 - Capacitor 8 packaging with an idempotent native setup script
 
@@ -139,9 +140,10 @@ never settles when the user closes the ad early.
       with your IDs (they replace the test ones):
       `ADMOB_APP_ID_ANDROID=ca-app-pub-…~… node scripts/setup-native.mjs android`
       `ADMOB_APP_ID_IOS=ca-app-pub-…~… node scripts/setup-native.mjs ios`
-- [ ] **Real rewarded ad unit IDs.** Copy `.env.production.example` to `.env.production` and fill in
-      `VITE_ADMOB_REWARDED_ANDROID` and `VITE_ADMOB_REWARDED_IOS`, with `VITE_ADS_TESTING=false`.
-      If an ID is missing, ads are disabled; the app never falls back to a test ID.
+- [ ] **Real ad unit IDs.** Copy `.env.production.example` to `.env.production` and fill in
+      `VITE_ADMOB_REWARDED_ANDROID/IOS` (and `VITE_ADMOB_INTERSTITIAL_ANDROID/IOS` if your game shows
+      interstitials), with `VITE_ADS_TESTING=false`. If an ID is missing, that kind of ad is disabled;
+      the app never falls back to a test ID.
 - [ ] **Rebuild and sync** (`npm run android` / `npm run ios`) so the production env is baked in.
 - [ ] **Consent message.** Create and publish the GDPR / privacy message in AdMob's Privacy &
       messaging section, otherwise EEA users never see a form.

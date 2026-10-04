@@ -6,6 +6,9 @@ interface ImportMetaEnv {
   /** Real rewarded ad unit IDs; only read when VITE_ADS_TESTING is "false". */
   readonly VITE_ADMOB_REWARDED_ANDROID?: string;
   readonly VITE_ADMOB_REWARDED_IOS?: string;
+  /** Real interstitial ad unit IDs; same rule. */
+  readonly VITE_ADMOB_INTERSTITIAL_ANDROID?: string;
+  readonly VITE_ADMOB_INTERSTITIAL_IOS?: string;
 }
 
 interface ImportMeta {

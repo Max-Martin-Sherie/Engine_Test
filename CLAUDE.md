@@ -26,7 +26,8 @@ Needs **Node >= 22.12**.
 src/main.ts            boot(createGame): the only file that sees both sides
 src/engine/            the engine - never imports from src/game
   core/                loop, pointer input, seeded RNG, safe storage, world size + layout math
-  services/            ads (fake in browsers, AdMob on devices) and analytics
+  services/            ads (rewarded + interstitial; fake in browsers, AdMob on devices), analytics,
+                       haptics (@capacitor/haptics), synthesised audio (Web Audio)
   view/                PixiJS bootstrap: letterboxed canvas + an empty, clipped `field` layer
   ui/                  invisible helpers: createStage() sizes a stage over the field, handles
                        safe-area insets; base.css is structure only (no fonts or colours)
@@ -38,9 +39,12 @@ src/game/              the game - everything the player sees and does
 
 ### The contract
 
-`createGame(context: EngineContext): Game`. The context gives the game: `input` (pointer, client
-space), `view` (`view.field` to draw into, `view.clientToWorldX`, `view.setBackground`), `ads`,
-`analytics`, `params` (URL query), `uiRoot` (#ui), `world` (360 x 640) and `resetClock()`. The game
+`createGame(context: EngineContext): Game`. The context gives the game: `input` (pointer position,
+plus drag gestures via `input.onGesture`: start/move/end/cancel, only for presses that begin on the
+canvas, never on DOM buttons), `view` (`view.field` to draw into, `view.clientToWorld(x, y)` /
+`clientToWorldX`, `view.setBackground`), `ads` (rewarded + interstitial), `analytics`, `haptics`,
+`audio` (both have `setEnabled`), `params` (URL query), `uiRoot` (#ui), `world` (360 x 640) and
+`resetClock()`. The game
 returns `{ step, update(dt), render(alpha) }`: a fixed step in seconds, a simulation step, and a
 function that updates what is drawn. The engine calls `render`, then draws the frame.
 
@@ -109,9 +113,13 @@ Further rules:
   promise never settles if the user closes the ad early. Await listener registration (Rewarded,
   Dismissed, FailedToShow) *before* calling show; on show rejection finish with `false`; keep the
   120 s safety timeout; always remove the listeners.
+- Interstitials: `showInterstitial()` resolves when the ad is *presented* on both platforms, so the end
+  of the ad comes from the Dismissed / FailedToShow events (with a safety timeout). The plugin's iOS
+  default interstitial ID is the Android one; we pass Google's iOS test ID (`.../4411468910`) explicitly.
+  Only one full-screen ad is ever shown at a time.
 - Test unit IDs are used unless `VITE_ADS_TESTING=false`; real IDs then come from
-  `VITE_ADMOB_REWARDED_ANDROID` / `VITE_ADMOB_REWARDED_IOS`. A missing real ID disables ads, it never
-  falls back to a test ID.
+  `VITE_ADMOB_REWARDED_ANDROID/IOS` and `VITE_ADMOB_INTERSTITIAL_ANDROID/IOS`. A missing real ID
+  disables that ad kind, it never falls back to a test ID.
 - The plugin's index does not export `PrivacyOptionsRequirementStatus` as a value.
 
 ## Toolchain notes

@@ -24,3 +24,23 @@ export function fitWorld(screenWidth: number, screenHeight: number, world: World
 export function clientToWorldX(clientX: number, canvasLeft: number, fit: Fit): number {
   return fit.scale > 0 ? (clientX - canvasLeft - fit.offsetX) / fit.scale : 0;
 }
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+/** Converts a client-space point to world coordinates. `canvasLeft/Top` is the canvas's client origin. */
+export function clientToWorld(
+  clientX: number,
+  clientY: number,
+  canvasLeft: number,
+  canvasTop: number,
+  fit: Fit,
+): Point {
+  if (!(fit.scale > 0)) return { x: 0, y: 0 };
+  return {
+    x: (clientX - canvasLeft - fit.offsetX) / fit.scale,
+    y: (clientY - canvasTop - fit.offsetY) / fit.scale,
+  };
+}

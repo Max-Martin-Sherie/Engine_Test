@@ -1,6 +1,6 @@
 import { Application, Container, Graphics } from 'pixi.js';
 import { WORLD } from '../core/config';
-import { clientToWorldX, fitWorld, type Fit } from '../core/layout';
+import { clientToWorld, clientToWorldX, fitWorld, type Fit, type Point } from '../core/layout';
 
 /**
  * The engine's PixiJS canvas. It draws nothing itself: a game adds display objects to `field`
@@ -20,6 +20,8 @@ export interface EngineView {
   setBackground(color: number): void;
   /** Converts a client-space x (CSS pixels) to world x. */
   clientToWorldX(clientX: number): number;
+  /** Converts a client-space point (CSS pixels) to world coordinates. */
+  clientToWorld(clientX: number, clientY: number): Point;
   /** Current scale/offset of the world on screen. */
   fit(): Fit;
   /** Renders the field. A no-op until ready. Called by the engine after the game's render. */
@@ -59,6 +61,7 @@ export function createEngineView(host: HTMLElement): EngineView {
   let background = 0x000000;
   // The canvas sits at the host's origin; re-read once per rendered frame, not per fixed step.
   let canvasLeft = 0;
+  let canvasTop = 0;
 
   function currentFit(): Fit {
     // app.screen follows the host after a resize; before init, ask the host directly.
@@ -93,12 +96,18 @@ export function createEngineView(host: HTMLElement): EngineView {
       return clientToWorldX(clientX, canvasLeft, currentFit());
     },
 
+    clientToWorld(clientX, clientY) {
+      return clientToWorld(clientX, clientY, canvasLeft, canvasTop, currentFit());
+    },
+
     fit: currentFit,
 
     draw() {
       if (!ready) return;
       applyLayout();
-      canvasLeft = app.canvas.getBoundingClientRect().left;
+      const rect = app.canvas.getBoundingClientRect();
+      canvasLeft = rect.left;
+      canvasTop = rect.top;
       app.render();
     },
 
