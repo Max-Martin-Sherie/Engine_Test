@@ -23,7 +23,8 @@ export const CONFIG = {
    */
   tolerance: {
     classic: { start: 12, floor: 1.5, fruitsToFloor: 30 },
-    survival: { start: 12, floor: 1.5, fruitsToFloor: 30 },
+    // Survival does not tighten with progress: it starts at the widest value and only misses shrink it.
+    survival: { start: 12, floor: 12, fruitsToFloor: 30 },
     arcade: { start: 16, floor: 4, fruitsToFloor: 60 },
   },
 

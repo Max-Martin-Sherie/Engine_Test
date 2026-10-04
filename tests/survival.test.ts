@@ -78,6 +78,18 @@ describe('survival', () => {
     expect(run.tolerance).toBeCloseTo(toleranceFor('survival', 1), 9);
   });
 
+  it('the tolerance never shrinks by itself: only misses take margin', () => {
+    const run = createRun('survival', 10);
+    const start = run.tolerance;
+    for (let i = 0; i < 12; i++) {
+      waitForFruit(run);
+      expect(run.tolerance).toBeCloseTo(start, 9);
+      step(run, cutWithDeviation(run, 0));
+    }
+    expect(run.round).toBe(12);
+    expect(run.penalty).toBe(0);
+  });
+
   it('a miss does not end the run: the amount it was over by comes off the tolerance', () => {
     const run = createRun('survival', 3);
     events(run);

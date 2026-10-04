@@ -14,7 +14,7 @@ nothing and you can try again.
 - **Arcade**: 60 s clock (max 99), three strikes. Good cuts add time, misses cost time and a strike.
   Fruit drift, then spin, then come in pairs; bombs (a drag through one is a strike) appear later.
   It starts with a wider tolerance than Classic and gets harder more slowly.
-- **Survival**: like Classic, but a miss does not end the run. The amount you were *over* the
+- **Survival**: like Classic, but the tolerance starts at its widest and never tightens by itself, and a miss does not end the run. The amount you were *over* the
   tolerance is taken off the tolerance for good. The run ends when less than 0.6 points are left.
 
 **Trying again.** Once a run has failed: pay coins (20, then doubling, capped at 1000) or watch a
