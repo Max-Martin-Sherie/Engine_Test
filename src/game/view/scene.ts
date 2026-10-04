@@ -16,7 +16,7 @@ import {
   type Skin,
   type Vec,
 } from '../sim';
-import { drawFruit, type FruitView } from './fruitArt';
+import { drawFruit } from './fruitArt';
 import { COLORS, FRUIT_COLORS } from './palette';
 
 const { width: W, height: H } = CONFIG.world;
@@ -41,7 +41,7 @@ export interface Scene {
   showBomb(x: number, y: number, now: number): void;
   clearEffects(): void;
   /** Dev tool: lay out every kind of fruit, whole or cut, to review the art. */
-  showGallery(kinds: readonly FruitKind[], view: FruitView): void;
+  showGallery(kinds: readonly FruitKind[]): void;
 }
 
 const hex = (color: string): number => Number.parseInt(color.slice(1), 16);
@@ -275,7 +275,7 @@ export function createScene(field: Container): Scene {
         for (const side of [1, -1] as const) {
           const root = new Container();
           const g = new Graphics();
-          drawFruit(g, piece.shape, piece, 'cut');
+          drawFruit(g, piece.shape, piece);
           // A half-plane on one side of the cut line hides the other half.
           const mask = new Graphics()
             .poly([
@@ -325,7 +325,7 @@ export function createScene(field: Container): Scene {
       for (const gh of ghosts.splice(0)) gh.root.destroy({ children: true });
     },
 
-    showGallery(kinds, view) {
+    showGallery(kinds) {
       for (const child of galleryLayer.removeChildren()) child.destroy({ children: true });
       attract.visible = false;
       const rng = createRng(11);
@@ -335,7 +335,7 @@ export function createScene(field: Container): Scene {
         const g = new Graphics();
         const x = 48 + (i % cols) * 88;
         const y = 84 + Math.floor(i / cols) * 112;
-        drawFruit(g, makeFruitShape(kind, rng, CONFIG.fruit.segments), { x, y, rotation: 0, radius }, view);
+        drawFruit(g, makeFruitShape(kind, rng, CONFIG.fruit.segments), { x, y, rotation: 0, radius });
         galleryLayer.addChild(g);
       });
     },

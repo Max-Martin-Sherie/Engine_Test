@@ -39,18 +39,18 @@ server at all. The profile (coins, owned and worn skin, best scores, sound/vibra
     `geometry.ts` + `cut.ts`: splitting a shape by a line and judging a drag; `rules.ts`: scoring, coins, restart cost
   - `profile.ts`, `skins.ts`: saved data and the skin catalog
 - `src/game/view/`: Pixi drawing. `scene.ts` (field, fruit, halves, knife, juice), `fruitArt.ts`
-  (each fruit drawn whole and cut), `palette.ts` (colours)
+  (each fruit drawn), `palette.ts` (colours)
 - `src/game/ui/`: DOM menu, HUD, shop and result screens (`ui.ts`, `styles.css`)
 - `src/game/sfx.ts`: synthesised sound (no audio files)
 
 **Adding a fruit:** add a kind and a `RadialSpec` in `sim/fruit.ts`, colours in `view/palette.ts`, and
-an outside and inside drawing in `view/fruitArt.ts`. `?gallery=whole` and `?gallery=cut` (dev only) lay
+a drawing in `view/fruitArt.ts` (halves reuse it, masked). `?gallery` (dev only) lays
 every fruit out to check them; the e2e gallery test fails if one throws.
 
 ## Dev URL parameters
 
 `?seed=N` (reproducible run), `?time=S` (Arcade start time), `?catalog=URL` (online skins; put it first,
-Vite treats URLs ending in `.json` as files), `?gallery=whole|cut`, plus the engine's `?ads=no-fill` and friends.
+Vite treats URLs ending in `.json` as files), `?gallery`, plus the engine's `?ads=no-fill` and friends.
 In dev builds `window.__game` shows the current run and profile.
 
 ## Tests

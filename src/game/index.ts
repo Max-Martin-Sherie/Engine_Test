@@ -474,10 +474,10 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
   refreshMenu();
   ui.show('menu');
 
-  // Dev tool (?gallery=whole or ?gallery=cut): every fruit laid out, to review the art.
+  // Dev tool (?gallery): every fruit laid out, to review the art.
   const gallery = import.meta.env.DEV ? params.get('gallery') : null;
-  if (gallery === 'whole' || gallery === 'cut') {
-    scene.showGallery(FRUIT_KINDS, gallery);
+  if (gallery !== null) {
+    scene.showGallery(FRUIT_KINDS);
     ui.show('none');
   }
 

@@ -11,9 +11,6 @@ export interface FruitPose {
   radius: number;
 }
 
-/** `whole`: the outside of the fruit, as you see it before cutting. `cut`: the inside, shown on a cut half. */
-export type FruitView = 'whole' | 'cut';
-
 const TAU = Math.PI * 2;
 const TOP = -Math.PI / 2;
 
@@ -66,23 +63,6 @@ function columnExtent(poly: readonly Vec[], x: number): [number, number] | null 
     }
   }
   return lo <= hi ? [lo, hi] : null;
-}
-
-/** Distance from the origin to the polygon's edge along `angle` (the polygon is star-shaped around the origin). */
-function rayExtent(poly: readonly Vec[], angle: number): number {
-  const d = { x: Math.cos(angle), y: Math.sin(angle) };
-  let nearest = Infinity;
-  for (let i = 0; i < poly.length; i++) {
-    const p = poly[i]!;
-    const q = poly[(i + 1) % poly.length]!;
-    const e = { x: q.x - p.x, y: q.y - p.y };
-    const denom = d.x * e.y - d.y * e.x;
-    if (Math.abs(denom) < 1e-9) continue;
-    const t = (p.x * e.y - p.y * e.x) / denom;
-    const u = (p.x * d.y - p.y * d.x) / denom;
-    if (t > 0 && u >= 0 && u <= 1) nearest = Math.min(nearest, t);
-  }
-  return Number.isFinite(nearest) ? nearest : 0.8;
 }
 
 /** Outward unit normal at vertex i of an outline centred on the origin. */
@@ -323,136 +303,12 @@ function drawOutside(k: Ctx, pose: FruitPose): void {
   }
 }
 
-// ---- the inside of each fruit -----------------------------------------------------------------
-
-function drawInside(k: Ctx, pose: FruitPose): void {
-  const { c, shape } = k;
-  const rim = Math.max(1.5, pose.radius * 0.035);
-  const kind = shape.kind;
-
-  k.g.poly(k.outline.flatMap((p) => { const w = k.at(p); return [w.x, w.y]; })).fill(c.skin).stroke({ width: rim, color: c.skinDark, join: 'round' });
-
-  // The layer between skin and flesh.
-  if (kind === 'watermelon') k.poly(shrink(k.outline, 0.94), c.accent);
-  else if (kind === 'orange') k.poly(shrink(k.outline, 0.95), 0xf3deb0);
-  else if (kind === 'lemon') k.poly(shrink(k.outline, 0.95), 0xe6d89c);
-  else if (kind === 'passionfruit') k.poly(shrink(k.outline, 0.94), c.accent);
-  else if (kind === 'avocado') k.poly(shrink(k.outline, 0.95), c.accent);
-
-  k.poly(k.flesh, c.flesh);
-  if (kind !== 'coconut') k.poly(shrink(k.flesh, 0.7), c.fleshLight, 0.3);
-
-  /** Lines out from the middle, as fractions of the way to the edge of the flesh in each direction. */
-  const spokes = (n: number, from: number, to: number, color: number, alpha: number, width = 0.018, phase = 0.2): void => {
-    for (let i = 0; i < n; i++) {
-      const a = phase + (TAU * i) / n;
-      const reach = rayExtent(k.flesh, a);
-      const dir = { x: Math.cos(a), y: Math.sin(a) };
-      k.line({ x: dir.x * reach * from, y: dir.y * reach * from }, { x: dir.x * reach * to, y: dir.y * reach * to }, width, color, alpha);
-    }
-  };
-  /** Points around the middle at a fraction of the way to the edge of the flesh. */
-  const edgeRing = (n: number, fraction: number, fn: (p: Vec, i: number) => void, phase = 0): void => {
-    for (let i = 0; i < n; i++) {
-      const a = phase + (TAU * i) / n;
-      const reach = rayExtent(k.flesh, a) * fraction;
-      fn({ x: Math.cos(a) * reach, y: Math.sin(a) * reach }, i);
-    }
-  };
-
-  switch (kind) {
-    case 'orange':
-    case 'lemon':
-      spokes(8, 0.1, 0.86, c.detail, 0.7);
-      k.dot(0, 0, 0.05, c.detail, 0.9);
-      break;
-    case 'apple':
-      k.ring(0.13, 0.13, 5, (p) => k.dot(p.x, p.y, 0.036, c.detail), TOP);
-      k.g.circle(k.at({ x: 0, y: 0 }).x, k.at({ x: 0, y: 0 }).y, 0.22 * pose.radius).stroke({ width: 1.4, color: c.skinDark, alpha: 0.25 });
-      break;
-    case 'watermelon':
-      k.scatter(shrink(k.flesh, 0.85), 13, (p) => k.dot(p.x, p.y, 0.032, c.detail));
-      break;
-    case 'pear':
-      k.g.ellipse(k.at({ x: 0, y: 0.12 }).x, k.at({ x: 0, y: 0.12 }).y, 0.13 * pose.radius, 0.2 * pose.radius).stroke({ width: 1.4, color: c.skinDark, alpha: 0.25 });
-      k.dot(-0.04, 0.16, 0.028, c.detail);
-      k.dot(0.04, 0.2, 0.028, c.detail);
-      break;
-    case 'banana': {
-      const middle = k.flesh.filter((p) => Math.abs(p.x) < 0.12);
-      const my = middle.reduce((s, p) => s + p.y, 0) / Math.max(1, middle.length);
-      for (const dx of [-0.12, 0, 0.12]) k.dot(dx, my, 0.02, c.detail);
-      break;
-    }
-    case 'kiwi':
-      spokes(26, 0.22, 0.8, c.fleshLight, 0.5, 0.014);
-      edgeRing(20, 0.58, (p) => k.dot(p.x, p.y, 0.02, c.detail));
-      k.g.ellipse(k.at({ x: 0, y: 0 }).x, k.at({ x: 0, y: 0 }).y, 0.2 * pose.radius, 0.17 * pose.radius).fill({ color: c.accent, alpha: 0.95 });
-      break;
-    case 'dragonfruit':
-      k.scatter(shrink(k.flesh, 0.93), 110, (p) => k.dot(p.x, p.y, 0.011, c.detail));
-      break;
-    case 'pineapple':
-      spokes(16, 0.28, 0.88, c.fleshLight, 0.55, 0.016);
-      k.dot(0, 0, 0.16, c.fleshLight, 0.45);
-      edgeRing(16, 0.9, (p) => k.dot(p.x, p.y, 0.022, c.detail, 0.8));
-      break;
-    case 'mango':
-      k.poly(shrink(k.flesh, 0.55), c.accent, 0.85, { width: 0.014, color: c.fleshLight, alpha: 0.7 });
-      break;
-    case 'starfruit':
-      k.ring(1, 1, 5, (p) => k.line({ x: 0, y: 0 }, { x: p.x * 0.78, y: p.y * 0.78 }, 0.016, c.fleshLight, 0.7), TOP);
-      k.ring(0.2, 0.2, 5, (p) => k.dot(p.x, p.y, 0.022, c.detail), TOP + 0.6);
-      break;
-    case 'pomegranate':
-      spokes(6, 0.05, 0.96, 0xe9dcc9, 1, 0.022, 0.3);
-      k.scatter(shrink(k.flesh, 0.88), 78, (p) => {
-        k.dot(p.x, p.y, 0.052, c.detail);
-        k.dot(p.x - 0.014, p.y - 0.016, 0.018, 0xff8a9a, 0.9);
-      });
-      break;
-    case 'passionfruit':
-      k.scatter(shrink(k.flesh, 0.9), 26, (p) => {
-        k.dot(p.x, p.y, 0.055, c.fleshLight, 0.55);
-        k.dot(p.x, p.y, 0.028, c.detail);
-      });
-      break;
-    case 'avocado':
-      k.dot(0, 0.1, 0.28, c.detail);
-      k.dot(-0.09, 0.03, 0.07, 0xb08050, 0.6);
-      break;
-    case 'papaya':
-      k.poly(shrink(k.flesh, 0.4), 0xffc9a8, 0.55);
-      k.scatter(shrink(k.flesh, 0.38), 26, (p) => k.dot(p.x, p.y, 0.03, c.detail));
-      break;
-    case 'lychee':
-      k.dot(0, 0.05, 0.27, c.detail);
-      k.dot(-0.08, -0.04, 0.07, 0xc08a6a, 0.8);
-      break;
-    case 'coconut':
-      k.dot(0, 0, 0.45, c.detail, 0.9);
-      k.dot(-0.12, -0.14, 0.09, 0xffffff, 0.45);
-      break;
-    case 'strawberry':
-      spokes(10, 0.3, 0.9, c.fleshLight, 0.7, 0.02);
-      k.dot(0, 0, 0.2, 0xfff0f2, 0.88);
-      edgeRing(18, 0.9, (p) => k.dot(p.x, p.y, 0.017, c.detail));
-      break;
-    case 'persimmon':
-      spokes(8, 0.1, 0.86, c.fleshLight, 0.5, 0.016, 0.4);
-      k.ring(0.26, 0.2, 4, (p) => { k.dot(p.x, p.y, 0.05, c.detail); k.dot(p.x * 1.18, p.y * 1.18, 0.035, c.detail); }, 0.4);
-      break;
-  }
-}
-
 /**
- * Draws a fruit into `g`. `whole` is the outside (skin, stem, crown, pores), what you see until you
- * cut it; `cut` is the inside (rind, flesh, seeds), shown on the two halves. Everything is built
- * from the shape's unit-space outline, so the picture is exactly the polygon the cut is measured against.
+ * Draws a fruit's outside (skin, stem, crown, pores) into `g`. A cut is the same picture, hidden
+ * by a half-plane mask on each half. Everything is built from the shape's unit-space outline, so
+ * the picture is exactly the polygon the cut is measured against.
  */
-export function drawFruit(g: Graphics, shape: FruitShape, pose: FruitPose, view: FruitView = 'whole'): void {
+export function drawFruit(g: Graphics, shape: FruitShape, pose: FruitPose): void {
   g.clear();
-  const ctx = makeCtx(g, shape, pose);
-  if (view === 'whole') drawOutside(ctx, pose);
-  else drawInside(ctx, pose);
+  drawOutside(makeCtx(g, shape, pose), pose);
 }

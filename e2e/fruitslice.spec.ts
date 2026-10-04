@@ -484,14 +484,12 @@ test.describe('wide desktop window', () => {
 });
 
 test.describe('the fruit', () => {
-  test('every fruit draws, whole on the outside and cut on the inside, without errors', async ({ page }) => {
+  test('every fruit draws without errors', async ({ page }) => {
     const problems = watchForErrors(page);
-    for (const view of ['whole', 'cut'] as const) {
-      await page.goto(`/?gallery=${view}`);
-      await expect.poll(async () => (await page.evaluate(() => window.__engine?.viewReady)) === true).toBe(true);
-      await page.waitForTimeout(400); // a frame or two with everything on screen
-      await shot(page, `17-gallery-${view}`);
-    }
+    await page.goto('/?gallery=1');
+    await expect.poll(async () => (await page.evaluate(() => window.__engine?.viewReady)) === true).toBe(true);
+    await page.waitForTimeout(400); // a frame or two with everything on screen
+    await shot(page, '17-gallery');
     expect(problems).toEqual([]);
   });
 });
