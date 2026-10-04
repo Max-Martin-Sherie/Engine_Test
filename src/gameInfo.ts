@@ -1,11 +1,24 @@
+import './rockfall.css';
 import type { GameInfo } from './ui';
 
-/** GAME: a short unique id; namespaces this game's localStorage keys. */
-export const GAME_ID = 'game';
+export const GAME_ID = 'rockfall';
 
-/** GAME: the words your screens show. See ui/ui.ts for what each field does. */
+/** Three little rocks above the title: the same coral / amber as the game's. */
+function titleArt(): HTMLElement {
+  const art = document.createElement('div');
+  art.className = 'logo-rocks';
+  for (const kind of ['a', 'b', 'c']) {
+    const rock = document.createElement('i');
+    rock.className = `rock rock-${kind}`;
+    art.append(rock);
+  }
+  return art;
+}
+
 export const GAME_INFO: GameInfo = {
-  title: 'Game Engine',
-  tagline: 'Replace sim/game.ts and view2d/scene.ts',
-  scoreLabel: 'Score',
+  title: 'RockFall',
+  tagline: 'Drag to dodge the falling rocks',
+  scoreLabel: 'You survived',
+  scoreUnit: 'seconds',
+  titleArt,
 };

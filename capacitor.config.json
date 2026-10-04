@@ -1,6 +1,6 @@
 {
-  "appId": "com.example.game",
-  "appName": "Game Engine",
+  "appId": "com.maxmartin.rockfall",
+  "appName": "RockFall",
   "webDir": "dist",
   "backgroundColor": "#0c2a33"
 }

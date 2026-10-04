@@ -1,9 +1,9 @@
 {
-  "name": "game-engine",
+  "name": "rockfall",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Portrait 9:16 mobile web game engine starter (Vite, PixiJS v8, Capacitor, AdMob test ads)",
+  "description": "RockFall - a portrait mobile dodge game built on the game engine (Vite, PixiJS v8, Capacitor, AdMob)",
   "engines": {
     "node": ">=22.12.0"
   },
