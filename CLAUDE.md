@@ -1,7 +1,35 @@
-# Rockfall
+# Game Engine
 
-Portrait 9:16 mobile web game (dodge falling rocks) built with TypeScript, Vite, PixiJS v8 and
-Capacitor 8, with AdMob rewarded test ads on Android/iOS. Needs **Node >= 22.12**.
+A barebones portrait 9:16 mobile web game engine: TypeScript, Vite, PixiJS v8, Capacitor 8, and
+AdMob rewarded test ads on Android/iOS. **This branch (`main`) is the engine only - there is no
+game here.** A placeholder rule ends each run after a few seconds so the whole loop (title, play,
+die, revive ad, play again, pause) works and is tested. Needs **Node >= 22.12**.
+
+## Branching: main is the engine, every game is a branch
+
+- Each game is a branch of `main`, checked out in its own folder with a git worktree
+  (`git worktree add -b <game> ../<Game> main`). Nobody switches branches.
+- **Engine fixes happen on `main` first** (this folder), are proven here (`npm run check`,
+  `npm run e2e`), then merged into every game branch (`git merge main`), running `npm run check` in
+  each. Never develop engine fixes inside a game branch and port them back. Never merge a game
+  branch into `main`.
+- Keep engine commits separate from game commits.
+- A game should only need to edit the "GAME:" files below. Editing other files makes later merges
+  conflict; if a game needs a new hook, add the hook to the engine on `main` instead.
+- Do not push without being asked.
+
+### The files a game owns ("GAME:" in their header comment)
+
+| File | What a game puts there |
+| --- | --- |
+| `src/sim/game.ts` | Its rules and extra state: `GameData`, `createGameData`, `updateGame` (return true on death), `onRevive`, `syncGamePrev`, `debugSnapshot` |
+| `src/sim/config.ts` | Its tuning numbers (keep `world`, `ticksPerSecond`, `dt`, `reviveGrace`) |
+| `src/sim/index.ts` | Extra exports its tests need |
+| `src/view2d/scene.ts`, `palette.ts` (+ new art files) | Everything drawn in the play field |
+| `src/gameInfo.ts` | Game id, title, tagline, score labels, optional title art |
+| `tests/`, `e2e/` | Tests for its own rules (keep the engine tests passing) |
+| `capacitor.config.json`, `index.html`, `public/favicon.svg`, `package.json` name | Its identity (appId, name) |
+| `android/`, `ios/` | Generated per game by `npm run android:setup` / `ios:setup`; never on `main` |
 
 ## Commands
 
@@ -18,7 +46,7 @@ Capacitor 8, with AdMob rewarded test ads on Android/iOS. Needs **Node >= 22.12*
 | `npm run ios:setup` / `npm run ios` | same for iOS (macOS only) |
 
 URL flags: `?seed=N` makes every run reproducible; `?ads=no-fill` / `?ads=skip` make the fake ad
-service fail. `window.__game` (`phase`, `score`, `rocks`) exists in dev builds only.
+service fail. `window.__game` (`phase`, `score`, `alive`, `debug`) exists in dev builds only.
 
 Set `CHROMIUM_PATH` to run e2e against an installed Chrome instead of Playwright's download.
 
@@ -30,14 +58,16 @@ other. `tests/architecture.test.ts` enforces this, so `npm run check` fails on a
 
 - `src/sim/` - pure game rules. **No Pixi, DOM, `window`, timers, `Date` or `Math.random`.**
   Seeded mulberry32 RNG whose state lives in `GameState`. Fixed `dt` of 1/60 via
-  `step(state, input)`. Entities keep previous positions for render interpolation. Emits events
-  (`died`, `revived`) that `main` drains with `drainEvents`. **All tuning lives in `sim/config.ts`.**
+  `step(state, input)`. `step.ts` (engine) owns the lifecycle - tick, score, death, revive, events
+  - and calls the hooks in `game.ts`. Entities keep previous positions for render interpolation.
+  Events (`died`, `revived`) are drained by `main` with `drainEvents`. **All tuning lives in
+  `sim/config.ts`.**
 - `src/core/` - fixed-timestep loop (accumulator, 0.25 s frame clamp, `render(alpha)`), pointer
   input in client space, RNG, safe `localStorage` wrapper.
-- `src/view2d/` - Pixi. `autoStart: false` (our loop calls `app.render()`), `preference: 'webgpu'`
-  with automatic WebGL fallback, `resizeTo` the host, `autoDensity`, resolution capped at 2. Pools
-  rock `Graphics` keyed by sim id, masks rocks to the field, interpolates with `alpha`. Exposes
-  `render(state, alpha)` and `clientToWorldX()`. **Reads state, never writes it.**
+- `src/view2d/` - Pixi. `gameView.ts` (engine): `autoStart: false` (our loop calls `app.render()`),
+  `preference: 'webgpu'` with automatic WebGL fallback, `resizeTo` the host, `autoDensity`,
+  resolution capped at 2, letterboxing, masked play field, `clientToWorldX()`. `scene.ts` (game)
+  draws into the field. **Reads state, never writes it.**
 - `src/ui/` - DOM overlay with real `<button>`s. Screens: title, HUD, game over, paused,
   waiting-for-ad. HUD is `pointer-events: none`. Handles safe-area insets. **Never call
   `.focus()` on buttons** (focus rings on touch). Callbacks only; never touches `GameState`.
@@ -56,7 +86,7 @@ other. `tests/architecture.test.ts` enforces this, so `npm run check` fails on a
    Passing tests do not prove the canvas drew anything.
 4. Never hand-edit `android/` or `ios/`. Change `scripts/setup-native.mjs` instead (it is
    idempotent and has tests in `tests/setup-native.test.ts`), then re-run it.
-5. Keep tuning numbers in `sim/config.ts`; no magic numbers in `sim/step.ts` or `sim/difficulty.ts`.
+5. Keep tuning numbers in `sim/config.ts`; no magic numbers in `sim/step.ts`.
 
 ## AdMob gotchas (verified against the plugin's native source)
 
@@ -78,4 +108,5 @@ other. `tests/architecture.test.ts` enforces this, so `npm run check` fails on a
 - TypeScript 7 no longer has the classic compiler API, so the Capacitor CLI cannot transpile a
   `capacitor.config.ts` reliably. The config is `capacitor.config.json` on purpose.
 - Vite 8 needs Node >= 20.19, Vitest 5 and the Capacitor 8 CLI need Node >= 22.
+- Capacitor 8's Android library compiles at Java 21; building Android needs JDK 21+ and the Android SDK.
 - `cap add` fails without a built `dist/`, so the `*:setup` scripts build first.

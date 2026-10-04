@@ -1,11 +1,16 @@
-# Rockfall
+# Game Engine
 
-A portrait (9:16) dodge-the-rocks game, built as a starter for mobile web games that ship to
-Android and iOS through Capacitor, with Google AdMob rewarded ads ("Watch ad to continue").
+A barebones portrait (9:16) mobile web game engine. It gives you, ready and tested:
 
-Steer the sand-coloured pebble by dragging (touch) or moving the mouse. Rocks fall faster and
-more often the longer you survive. Your score is the seconds you last; the best score is kept in
-`localStorage`.
+- a fixed-timestep loop, pointer input and a seeded deterministic simulation
+- a PixiJS v8 view, letterboxed to any screen
+- a DOM overlay (title, HUD, game over, pause, waiting-for-ad) with safe-area handling
+- Google AdMob rewarded ads on Android/iOS (consent, ATT, events-based reward), fake ads in the browser
+- Capacitor 8 packaging with an idempotent native setup script
+
+**There is no game here.** A placeholder rule ends each run after 5 seconds so you can click through
+the whole flow (play, die, watch an ad to continue, play again, pause). Real games are branches of
+this one; see [Making a game](#making-a-game).
 
 **Stack:** TypeScript (strict) · Vite 8 · PixiJS v8 · Capacitor 8 · `@capacitor-community/admob` 8 ·
 Vitest · Playwright
@@ -30,12 +35,12 @@ Open <http://localhost:5173>. Useful URL flags:
 
 | Flag | Effect |
 | --- | --- |
-| `?seed=42` | Every run uses seed 42, so rock patterns repeat exactly |
+| `?seed=42` | Every run uses seed 42, so anything driven by the sim RNG repeats exactly |
 | `?ads=no-fill` | The fake ad service never loads an ad (no "Watch ad to continue" button) |
 | `?ads=skip` | The fake ad plays, but the "user" closes it early (no reward) |
 
 In the browser, ads are a fake: a grey "Test ad" screen for 2 seconds. In dev builds
-`window.__game` (`phase`, `score`, `rocks`) gives tests a read-only view of the game.
+`window.__game` (`phase`, `score`, `alive`, `debug`) gives tests a read-only view of the game.
 
 ## Try it on your phone over Wi-Fi
 
@@ -55,8 +60,7 @@ npm test         # unit tests only (Vitest)
 npm run e2e      # Playwright, Pixel 7 emulation, starts the dev server itself
 ```
 
-The unit tests cover the simulation (determinism, clamping, speed cap, difficulty caps, death,
-revive, grace period), the loop, storage, the fake and AdMob ad services (with a scripted fake
+The unit tests cover the simulation lifecycle (determinism, score, death, revive, grace period), the loop, storage, the fake and AdMob ad services (with a scripted fake
 plugin), the native setup script, and the architecture rules in `CLAUDE.md`.
 
 Playwright needs a Chromium. Either download Playwright's:
@@ -76,6 +80,16 @@ $env:CHROMIUM_PATH = "C:\Program Files\Google\Chrome\Application\chrome.exe"; np
 
 The e2e run writes screenshots to `e2e/screenshots/` (git-ignored). **Look at them** after any
 visual change: the tests passing does not prove the canvas drew anything.
+
+## Making a game
+
+1. Create a branch in its own folder (no branch switching):
+   `git worktree add -b mygame ../MyGame main`, then `npm install` there.
+2. Edit only the files marked `GAME:` in their header comment:
+   `src/sim/game.ts` (rules and state), `src/sim/config.ts` (tuning), `src/view2d/scene.ts` (drawing),
+   `src/gameInfo.ts` (id, title, labels), plus your tests. See `CLAUDE.md` for the full table.
+3. Set your `appId` and name in `capacitor.config.json`, then run `npm run android:setup`.
+4. Engine improvements go on `main` first, then `git merge main` into each game.
 
 ## Android
 
@@ -135,17 +149,18 @@ never settles when the user closes the ad early.
 - [ ] **Store listings:** privacy policy URL, the Play Data safety form, the App Store privacy
       "nutrition label", and the age rating questionnaire (ads affect these answers).
 - [ ] **Analytics.** `ConsoleAnalytics` only logs; swap in a real `AnalyticsService` if you need one.
-- [ ] **Test on real devices** before submitting (see below).
+- [ ] **Test on real devices** before submitting.
 
 ## Project layout
 
 ```
 src/
   core/       fixed-timestep loop, pointer input, RNG, safe storage
-  sim/        pure game rules + config.ts (all tuning)
-  view2d/     PixiJS rendering
-  ui/         DOM overlay (screens, HUD)
+  sim/        pure lifecycle (step.ts) + the game's rules (game.ts) + config.ts (all tuning)
+  view2d/     PixiJS engine (gameView.ts) + the game's drawing (scene.ts)
+  ui/         DOM overlay (screens, HUD), text comes from gameInfo.ts
   services/   ads + analytics (fake in the browser, AdMob on native)
+  gameInfo.ts the game's id, title and labels
   main.ts     composition root and phase state machine
 scripts/      setup-native.mjs
 tests/        Vitest        e2e/   Playwright

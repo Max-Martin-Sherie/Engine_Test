@@ -166,7 +166,7 @@ describe('setupNative (on a copy of the generated templates)', () => {
   });
 
   function project(): string {
-    const root = mkdtempSync(join(tmpdir(), 'rockfall-native-'));
+    const root = mkdtempSync(join(tmpdir(), 'native-setup-test-'));
     dirs.push(root);
     const files: Record<string, string> = {
       'android/app/src/main/AndroidManifest.xml': MANIFEST,
@@ -216,7 +216,7 @@ describe('setupNative (on a copy of the generated templates)', () => {
   });
 
   it('explains what to do when the platform has not been added yet', () => {
-    const root = mkdtempSync(join(tmpdir(), 'rockfall-empty-'));
+    const root = mkdtempSync(join(tmpdir(), 'native-setup-empty-'));
     dirs.push(root);
     expect(() => setupNative('android', { root, env: {}, ...quiet })).toThrow(/cap add/);
     expect(() => setupNative('windows', { root, env: {}, ...quiet })).toThrow(/Usage/);

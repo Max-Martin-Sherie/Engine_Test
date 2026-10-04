@@ -18,6 +18,18 @@ export interface GameOverInfo {
   canRevive: boolean;
 }
 
+/** The words (and optional art) the screens show. Supplied by the game through main.ts. */
+export interface GameInfo {
+  title: string;
+  tagline: string;
+  /** Label above the score on the game-over screen, e.g. "Score". */
+  scoreLabel: string;
+  /** Optional small label under the score, e.g. "seconds". */
+  scoreUnit?: string;
+  /** Optional decoration shown above the title. Build it with plain DOM; style it in your own CSS. */
+  titleArt?: () => HTMLElement;
+}
+
 export interface Ui {
   show(screen: Screen): void;
   setScore(score: number): void;
@@ -54,7 +66,7 @@ function screenSection(name: Screen, label: string, dim: 'light' | 'heavy'): HTM
 }
 
 /** Builds the overlay inside `root` (a full-window element). Pure DOM; knows nothing about GameState. */
-export function createUi(root: HTMLElement, callbacks: UiCallbacks): Ui {
+export function createUi(root: HTMLElement, callbacks: UiCallbacks, info: GameInfo): Ui {
   root.classList.add('ui-root');
 
   // Reads the device's safe-area insets as pixels. Capacitor's SystemBars plugin exposes them as
@@ -70,16 +82,15 @@ export function createUi(root: HTMLElement, callbacks: UiCallbacks): Ui {
   hud.append(hudScore, hudBest);
 
   // Title.
-  const title = screenSection('title', 'Rockfall', 'light');
-  const logoRocks = el('div', 'logo-rocks');
-  logoRocks.setAttribute('aria-hidden', 'true');
-  logoRocks.append(el('i', 'rock rock-a'), el('i', 'rock rock-b'), el('i', 'rock rock-c'));
+  const title = screenSection('title', info.title, 'light');
   const titlePanel = el('div', 'panel');
   const titleBest = el('p', 'meta', 'Best 0');
+  const art = info.titleArt?.();
+  art?.setAttribute('aria-hidden', 'true');
   titlePanel.append(
-    logoRocks,
-    el('h1', 'logo', 'Rockfall'),
-    el('p', 'tagline', 'Drag to dodge the falling rocks'),
+    ...(art ? [art] : []),
+    el('h1', 'logo', info.title),
+    el('p', 'tagline', info.tagline),
     button('Play', 'play', 'btn-primary'),
     titleBest,
   );
@@ -101,9 +112,9 @@ export function createUi(root: HTMLElement, callbacks: UiCallbacks): Ui {
   actions.append(button('Play again', 'again', 'btn-primary'), reviveButton);
   overPanel.append(
     el('h2', 'heading', 'Game over'),
-    el('p', 'meta', 'You survived'),
+    el('p', 'meta', info.scoreLabel),
     overScore,
-    el('p', 'meta', 'seconds'),
+    ...(info.scoreUnit ? [el('p', 'meta', info.scoreUnit)] : []),
     overBest,
     actions,
   );

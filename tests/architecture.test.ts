@@ -126,8 +126,8 @@ describe('architecture', () => {
     expect(violations).toEqual([]);
   });
 
-  it('all tuning numbers live in sim/config.ts (no magic numbers in step.ts / difficulty.ts)', () => {
-    for (const name of ['sim/step.ts', 'sim/difficulty.ts']) {
+  it('all tuning numbers live in sim/config.ts (no magic numbers in the engine step)', () => {
+    for (const name of ['sim/step.ts']) {
       const file = tsFiles.find((f) => f.path === name);
       expect(file, name).toBeDefined();
       // Allow 0, 1, 2 (arithmetic) and array indices; anything else should come from CONFIG.

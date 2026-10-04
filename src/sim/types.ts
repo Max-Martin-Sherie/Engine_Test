@@ -1,37 +1,15 @@
 import type { RngState } from '../core/rng';
-
-export interface Rock {
-  id: number;
-  x: number;
-  y: number;
-  /** Position at the start of the latest step, for render interpolation. */
-  prevX: number;
-  prevY: number;
-  vx: number;
-  vy: number;
-  r: number;
-}
-
-export interface Player {
-  x: number;
-  y: number;
-  prevX: number;
-  r: number;
-}
+import type { GameData } from './game';
 
 export type GameEvent = { type: 'died'; score: number } | { type: 'revived' };
 
-export interface GameState {
+/** What every game has. A game adds its own fields through GameData (see game.ts). */
+export interface EngineState {
   seed: number;
   /** Fixed steps survived. Time and score derive from this, so they never drift. */
   tick: number;
   alive: boolean;
-  player: Player;
-  rocks: Rock[];
-  /** Seconds until the next rock spawns. */
-  spawnTimer: number;
-  nextRockId: number;
-  /** Seconds of invulnerability left (after a revive). */
+  /** Seconds of invulnerability left (after a revive). Games decide what it protects against. */
   invuln: number;
   reviveUsed: boolean;
   rng: RngState;
@@ -39,7 +17,9 @@ export interface GameState {
   events: GameEvent[];
 }
 
+export type GameState = EngineState & GameData;
+
 export interface Input {
-  /** World x the player steers toward, or null to hold position. */
+  /** World x the pointer points at, or null before the first pointer event. */
   targetX: number | null;
 }

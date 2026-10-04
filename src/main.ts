@@ -1,14 +1,24 @@
 import { PointerInput } from './core/input';
 import { FixedLoop } from './core/loop';
 import { safeGetNumber, safeSetNumber } from './core/storage';
+import { GAME_ID, GAME_INFO } from './gameInfo';
 import { createServices, parseFakeAdMode } from './services';
-import { CONFIG, createState, drainEvents, revive, scoreOf, step, type GameEvent } from './sim';
+import {
+  CONFIG,
+  createState,
+  debugSnapshot,
+  drainEvents,
+  revive,
+  scoreOf,
+  step,
+  type GameEvent,
+} from './sim';
 import { createUi, type GameOverInfo } from './ui';
 import { createGameView, type GameView } from './view2d';
 
 type Phase = 'title' | 'playing' | 'paused' | 'over' | 'ad';
 
-const BEST_KEY = 'rockfall.best';
+const BEST_KEY = `${GAME_ID}.best`;
 
 // ---- URL flags ---------------------------------------------------------------------------
 // ?seed=N  every run uses seed N (reproducible)   ?ads=no-fill | skip  fake ad failure modes
@@ -38,12 +48,16 @@ let best = safeGetNumber(BEST_KEY, 0);
 let lastOver: Omit<GameOverInfo, 'canRevive'> = { score: 0, best, isNewBest: false };
 let view: GameView | null = null;
 
-const ui = createUi(requireElement('ui'), {
-  onPlay: startRun,
-  onPlayAgain: startRun,
-  onRevive: () => void reviveWithAd(),
-  onResume: resume,
-});
+const ui = createUi(
+  requireElement('ui'),
+  {
+    onPlay: startRun,
+    onPlayAgain: startRun,
+    onRevive: () => void reviveWithAd(),
+    onResume: resume,
+  },
+  GAME_INFO,
+);
 ui.setBest(best);
 ui.show('title');
 
@@ -165,7 +179,8 @@ if (import.meta.env.DEV) {
     get: () => ({
       phase,
       score: scoreOf(state),
-      rocks: state.rocks.map(({ id, x, y, r }) => ({ id, x, y, r })),
+      alive: state.alive,
+      debug: debugSnapshot(state),
     }),
   });
 }

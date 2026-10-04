@@ -17,6 +17,8 @@ interface Window {
   readonly __game?: {
     readonly phase: 'title' | 'playing' | 'paused' | 'over' | 'ad';
     readonly score: number;
-    readonly rocks: ReadonlyArray<{ id: number; x: number; y: number; r: number }>;
+    readonly alive: boolean;
+    /** Whatever sim/game.ts debugSnapshot() returns; your game's view for tests. */
+    readonly debug: Readonly<Record<string, unknown>>;
   };
 }
