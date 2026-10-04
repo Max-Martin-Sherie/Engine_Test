@@ -1,0 +1,64 @@
+name: Playable builds
+
+# Publishes every game branch (everything except main) as its own page on GitHub Pages:
+#   https://<user>.github.io/<repo>/            a list of the games
+#   https://<user>.github.io/<repo>/<branch>/   the game on that branch
+# Ads are fake in a browser and nothing is saved anywhere but the player's own browser.
+
+on:
+  push:
+    branches: [main, rockfall, fruitslice]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build every game branch
+        run: |
+          set -e
+          mkdir -p site
+          branches=$(git for-each-ref --format='%(refname:short)' refs/remotes/origin | sed 's#^origin/##' | grep -v -e '^HEAD$' -e '^origin$' -e '^main$' || true)
+          {
+            echo '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            echo '<title>Games</title><body style="font:20px system-ui;background:#150f1f;color:#fff4dc;padding:24px"><h1>Games</h1><ul>'
+          } > site/index.html
+          for branch in $branches; do
+            echo "::group::$branch"
+            git worktree add "$RUNNER_TEMP/$branch" "origin/$branch"
+            (cd "$RUNNER_TEMP/$branch" && npm ci && npx vite build --outDir "$GITHUB_WORKSPACE/site/$branch" --emptyOutDir)
+            echo "<li><a style=\"color:#9be564\" href=\"$branch/\">$branch</a></li>" >> site/index.html
+            echo "::endgroup::"
+          done
+          echo '</ul></body>' >> site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
