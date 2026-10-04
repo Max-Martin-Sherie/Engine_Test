@@ -1,9 +1,14 @@
+import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * End-to-end tests of the engine on its own: it loads the libraries and services, runs the loop
- * and shows a blank letterboxed canvas. Game-specific flows belong in a game's own spec files.
+ * End-to-end tests of the engine: it loads the libraries and services, runs the loop and
+ * letterboxes a canvas. These hold for every game, so game branches keep this file unchanged.
+ * The one test that needs a blank screen only runs while src/game is the empty game.
+ * Game-specific flows belong in a game's own spec files.
  */
+
+const EMPTY_GAME = readFileSync('src/game/index.ts', 'utf8').includes('IS_EMPTY_GAME = true');
 
 const SHOTS = 'e2e/screenshots';
 
@@ -26,7 +31,7 @@ async function waitForRenderer(page: Page): Promise<void> {
   await expect.poll(async () => (await engine(page))?.viewReady, { timeout: 15_000 }).toBe(true);
 }
 
-test('boots to a blank letterboxed canvas with the services running', async ({ page }) => {
+test('boots with a real renderer, a letterboxed canvas and no stray DOM', async ({ page }) => {
   const problems = watchForErrors(page);
   await page.goto('/');
   await waitForRenderer(page);
@@ -42,16 +47,28 @@ test('boots to a blank letterboxed canvas with the services running', async ({ p
   expect(canvas).toEqual({ width: 824, height: 1678, cssWidth: 412, cssHeight: 839 });
   expect(await page.locator('canvas').count()).toBe(1);
 
-  // Blank: the engine adds no screens, buttons or text of its own.
-  expect(await page.locator('#ui').evaluate((el) => el.children.length)).toBe(0);
-  expect(await page.locator('button').count()).toBe(0);
-  expect((await page.locator('body').innerText()).trim()).toBe('');
+  // Pixi's phone-only accessibility hook button is removed.
+  expect(await page.locator('button[title*="enable accessibility"]').count()).toBe(0);
 
   // Letterboxed: 9:16 world on a taller phone screen leaves bars top and bottom.
   const fit = (await engine(page))?.fit;
   expect(fit?.scale).toBeCloseTo(412 / 360, 6);
   expect(fit?.offsetX).toBeCloseTo(0, 6);
   expect(fit?.offsetY).toBeCloseTo((839 - 640 * (412 / 360)) / 2, 6);
+
+  expect(problems).toEqual([]);
+});
+
+test('the empty engine shows a blank screen', async ({ page }) => {
+  test.skip(!EMPTY_GAME, 'a game is installed in src/game');
+  const problems = watchForErrors(page);
+  await page.goto('/');
+  await waitForRenderer(page);
+
+  // Blank: the engine adds no screens, buttons or text of its own.
+  expect(await page.locator('#ui').evaluate((el) => el.children.length)).toBe(0);
+  expect(await page.locator('button').count()).toBe(0);
+  expect((await page.locator('body').innerText()).trim()).toBe('');
 
   await page.screenshot({ path: `${SHOTS}/engine-blank.png` });
   expect(problems).toEqual([]);
@@ -79,7 +96,6 @@ test.describe('wide desktop window', () => {
     await page.goto('/');
     await waitForRenderer(page);
     expect((await engine(page))?.fit).toEqual({ scale: 1, offsetX: 370, offsetY: 0 });
-    await page.screenshot({ path: `${SHOTS}/engine-blank-wide.png` });
 
     await page.setViewportSize({ width: 720, height: 1280 });
     await expect

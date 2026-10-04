@@ -7,6 +7,9 @@
  */
 import type { GameFactory } from '../engine';
 
+/** The engine's blank-screen e2e test only runs while this marker is present. Delete it with your game. */
+export const IS_EMPTY_GAME = true;
+
 export const createGame: GameFactory = () => ({
   step: 1 / 60,
   update() {},
