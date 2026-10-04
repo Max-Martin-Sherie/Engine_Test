@@ -1,16 +1,16 @@
 # Game Engine
 
-A barebones portrait (9:16) mobile web game engine. It gives you, ready and tested:
+A portrait (9:16) mobile web game **engine**. It loads and wires up, ready and tested:
 
-- a fixed-timestep loop, pointer input and a seeded deterministic simulation
-- a PixiJS v8 view, letterboxed to any screen
-- a DOM overlay (title, HUD, game over, pause, waiting-for-ad) with safe-area handling
-- Google AdMob rewarded ads on Android/iOS (consent, ATT, events-based reward), fake ads in the browser
+- a fixed-timestep loop, pointer input, a seeded RNG and safe storage
+- a PixiJS v8 canvas, letterboxed to any screen, handing a game an empty clipped drawing layer
+- Google AdMob rewarded ads on Android/iOS (consent, ATT, events-based reward), fake ads in browsers
+- invisible UI helpers: a stage that sits over the play field and handles safe-area insets
 - Capacitor 8 packaging with an idempotent native setup script
 
-**There is no game here.** A placeholder rule ends each run after 5 seconds so you can click through
-the whole flow (play, die, watch an ad to continue, play again, pause). Real games are branches of
-this one; see [Making a game](#making-a-game).
+**It draws nothing.** Run on its own, `main` shows a blank black screen, and that is correct. Menus,
+HUD, score, rules and art belong to a *game*; games are branches of this one. See
+[Making a game](#making-a-game).
 
 **Stack:** TypeScript (strict) · Vite 8 · PixiJS v8 · Capacitor 8 · `@capacitor-community/admob` 8 ·
 Vitest · Playwright
@@ -35,12 +35,12 @@ Open <http://localhost:5173>. Useful URL flags:
 
 | Flag | Effect |
 | --- | --- |
-| `?seed=42` | Every run uses seed 42, so anything driven by the sim RNG repeats exactly |
 | `?ads=no-fill` | The fake ad service never loads an ad (no "Watch ad to continue" button) |
 | `?ads=skip` | The fake ad plays, but the "user" closes it early (no reward) |
 
-In the browser, ads are a fake: a grey "Test ad" screen for 2 seconds. In dev builds
-`window.__game` (`phase`, `score`, `alive`, `debug`) gives tests a read-only view of the game.
+In the browser, ads are a fake: a grey "Test ad" screen for 2 seconds. A game can read more flags
+from the URL (RockFall uses `?seed=42`). In dev builds `window.__engine` (`viewReady`, `renderer`,
+`fit`, `adsReady`) gives tests a read-only view of the engine.
 
 ## Try it on your phone over Wi-Fi
 
@@ -60,8 +60,10 @@ npm test         # unit tests only (Vitest)
 npm run e2e      # Playwright, Pixel 7 emulation, starts the dev server itself
 ```
 
-The unit tests cover the simulation lifecycle (determinism, score, death, revive, grace period), the loop, storage, the fake and AdMob ad services (with a scripted fake
-plugin), the native setup script, and the architecture rules in `CLAUDE.md`.
+The unit tests cover the loop, RNG, storage, letterbox and stage maths, the fake and AdMob ad services
+(with a scripted fake plugin), the native setup script, and the architecture rules in `CLAUDE.md`.
+The e2e tests check the engine on its own: a real renderer, a blank letterboxed canvas, the ad
+service starting in the background, and re-fitting when the window is resized.
 
 Playwright needs a Chromium. Either download Playwright's:
 
@@ -85,9 +87,10 @@ visual change: the tests passing does not prove the canvas drew anything.
 
 1. Create a branch in its own folder (no branch switching):
    `git worktree add -b mygame ../MyGame main`, then `npm install` there.
-2. Edit only the files marked `GAME:` in their header comment:
-   `src/sim/game.ts` (rules and state), `src/sim/config.ts` (tuning), `src/view2d/scene.ts` (drawing),
-   `src/gameInfo.ts` (id, title, labels), plus your tests. See `CLAUDE.md` for the full table.
+2. Build the game in `src/game/`. `src/game/index.ts` exports `createGame(context)`, which gets the
+   engine's tools (pointer input, the Pixi `view`, ads, analytics, the `#ui` overlay) and returns
+   `{ step, update, render }`. The usual shape is `sim/` (pure rules), `view/` (drawing), `ui/`
+   (DOM screens), and a small flow file; see `CLAUDE.md` for the contract and the rules.
 3. Set your `appId` and name in `capacitor.config.json`, then run `npm run android:setup`.
 4. Engine improvements go on `main` first, then `git merge main` into each game.
 
@@ -155,15 +158,16 @@ never settles when the user closes the ad early.
 
 ```
 src/
-  core/       fixed-timestep loop, pointer input, RNG, safe storage
-  sim/        pure lifecycle (step.ts) + the game's rules (game.ts) + config.ts (all tuning)
-  view2d/     PixiJS engine (gameView.ts) + the game's drawing (scene.ts)
-  ui/         DOM overlay (screens, HUD), text comes from gameInfo.ts
-  services/   ads + analytics (fake in the browser, AdMob on native)
-  gameInfo.ts the game's id, title and labels
-  main.ts     composition root and phase state machine
-scripts/      setup-native.mjs
-tests/        Vitest        e2e/   Playwright
+  main.ts          boots the engine with the game
+  engine/          the engine (never imports the game)
+    core/          loop, pointer input, RNG, safe storage, world size + layout maths
+    services/      ads + analytics (fake in the browser, AdMob on native)
+    view/          PixiJS canvas, letterboxing, the empty `field` layer
+    ui/            invisible stage + safe-area helpers
+    boot.ts        wires it together
+  game/            your game (empty on main)
+scripts/           setup-native.mjs
+tests/             Vitest        e2e/   Playwright
 ```
 
-Dependency direction: `main -> ui / view2d / services -> sim -> core`. See `CLAUDE.md` for the rules.
+Dependency direction: `main -> game -> engine`. See `CLAUDE.md` for the rules.

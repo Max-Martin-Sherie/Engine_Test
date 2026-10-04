@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { guardAdService, type AdService } from '../src/services/ads';
-import type { AnalyticsService } from '../src/services/analytics';
-import { FakeAdService, FAKE_AD_DURATION_MS, parseFakeAdMode } from '../src/services/fakeAds';
+import { guardAdService, type AdService } from '../src/engine/services/ads';
+import type { AnalyticsService } from '../src/engine/services/analytics';
+import { FakeAdService, FAKE_AD_DURATION_MS, parseFakeAdMode } from '../src/engine/services/fakeAds';
 
 const analytics: AnalyticsService & { events: string[] } = {
   events: [],
