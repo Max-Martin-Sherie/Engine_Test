@@ -2,31 +2,38 @@
  * Painted fruit. If `src/game/art/fruits.png` exists (made with `scripts/fruit-art.mjs prepare`), the
  * game draws fruit from it; otherwise it falls back to the built-in vector drawings in fruitArt.ts.
  *
- * The sheet is 5 columns x 4 rows of 256 px cells, in the order of FRUIT_KINDS. Each fruit sits in the
- * middle of its cell and its outline reaches SHEET_RADIUS px from the middle, so a fruit of world
- * radius r is drawn at scale r / SHEET_RADIUS.
+ * The sheet is 5 columns x 4 rows of square cells, in the order of FRUIT_KINDS. Each fruit sits in the
+ * middle of its cell and its outline reaches 7/16 of the cell size from the middle (112 px of a 256 px
+ * cell), so any cell size works: a fruit of world radius r is drawn at scale r / (cell * 7/16).
  */
 import { Assets, Container, Graphics, Rectangle, Sprite, Texture } from 'pixi.js';
 import { FRUIT_KINDS, type FruitKind, type FruitShape } from '../sim';
 import { drawFruit, type FruitPose } from './fruitArt';
 
 const COLS = 5;
-const CELL = 256;
-const SHEET_RADIUS = 112;
+const OUTLINE_REACH = 7 / 16;
 
 // With no file, the glob matches nothing: no request is made and nothing can 404.
 const found = import.meta.glob('../art/fruits.png', { query: '?url', import: 'default', eager: true }) as Record<string, string>;
 const sheetUrl = Object.values(found)[0];
 
 const textures = new Map<FruitKind, Texture>();
+/** Pixels from a fruit's middle to the edge of its outline in the loaded sheet. */
+let sheetRadius = 112;
 
 /** Loads the sheet in the background. Fruit made before it arrives use the vector drawings. */
 export async function loadFruitSheet(): Promise<void> {
   if (!sheetUrl) return;
   try {
     const sheet = await Assets.load<Texture>(sheetUrl);
+    const cell = Math.floor(sheet.width / COLS);
+    sheetRadius = cell * OUTLINE_REACH;
+    // Big painted art is shown smaller than it is: mipmaps keep the shrunken picture smooth.
+    sheet.source.autoGenerateMipmaps = true;
+    sheet.source.style.scaleMode = 'linear';
+    sheet.source.style.mipmapFilter = 'linear';
     FRUIT_KINDS.forEach((kind, i) => {
-      const frame = new Rectangle((i % COLS) * CELL, Math.floor(i / COLS) * CELL, CELL, CELL);
+      const frame = new Rectangle((i % COLS) * cell, Math.floor(i / COLS) * cell, cell, cell);
       textures.set(kind, new Texture({ source: sheet.source, frame }));
     });
   } catch {
@@ -42,7 +49,7 @@ export function makeFruitBody(shape: FruitShape, pose: FruitPose): Container {
     sprite.anchor.set(0.5);
     sprite.position.set(pose.x, pose.y);
     sprite.rotation = pose.rotation;
-    sprite.scale.set(pose.radius / SHEET_RADIUS);
+    sprite.scale.set(pose.radius / sheetRadius);
     return sprite;
   }
   const g = new Graphics();

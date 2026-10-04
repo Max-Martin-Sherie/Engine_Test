@@ -4,7 +4,70 @@ The game normally draws its 19 fruit itself. If you put a sprite sheet at `src/g
 it draws those instead (nothing else changes: cutting still uses the invisible outline of each fruit,
 which is why the guide sheet shows those outlines).
 
-## 1. Generate the sheet
+## Sharp version: 5 small pictures instead of 1 big sheet (recommended)
+
+ChatGPT makes pictures of roughly 1024-1536 px. On one sheet of 19 fruit, each fruit gets only ~230 px,
+but the game shows a fruit up to ~420 px wide, so it looks soft. With **4 fruit per picture** each one
+gets ~450 px, which is sharp.
+
+1. `node scripts/fruit-art.mjs guide batches` writes `art/batch-1.png` ... `batch-5.png` (2 x 2 fruit each,
+   1024 x 1024; already generated in this folder).
+2. For each batch, one at a time, in one ChatGPT conversation: attach `art/batch-N.png` and send the prompt
+   below with the fruit list of that batch filled in:
+
+   | Batch | Fruit |
+   | --- | --- |
+   | 1 | 1 orange, 2 apple (red), 3 watermelon (green stripes), 4 lemon (soft mustard yellow, NOT bright or neon) |
+   | 2 | 5 pear, 6 banana, 7 kiwi (brown fuzzy skin), 8 dragonfruit (pink skin, green-tipped scales) |
+   | 3 | 9 pineapple, 10 mango, 11 starfruit (yellow-green, five ridges), 12 pomegranate |
+   | 4 | 13 passionfruit (a LIGHT, saturated violet - it must stand out on a dark purple background), 14 avocado (dark green, bumpy), 15 papaya, 16 lychee (rough pink-red skin) |
+   | 5 | 17 coconut (brown, hairy, three dark spots), 18 strawberry (tiny seeds), 19 persimmon (orange) - the 4th cell stays empty magenta |
+
+3. From batch 2 on, also attach your **first result** and add: *"Match the style of the first result exactly:
+   same outline thickness, shading, highlight and colour saturation."*
+4. Ask for the **largest size** it can make (e.g. "1024 x 1024 or larger") and save each result as a PNG.
+5. Convert all five, in order:
+
+```bash
+node scripts/fruit-art.mjs prepare art/b1.png art/b2.png art/b3.png art/b4.png art/b5.png
+```
+
+The converter reports every fruit as `found WxHpx -> wxhpx`; if it says **(enlarged ...: soft)** that fruit
+was too small in your picture, so regenerate that batch. You can also pass the one big sheet (it just gives a
+softer result), and `--cell 384` makes a smaller file (the default 512 is 2560 x 2048 and ~3 MB).
+
+### Prompt for one batch
+
+```
+I am attaching a layout image for a mobile game: a 2 x 2 grid. Each cell has a grey silhouette on a
+magenta background and a small label in its top-left corner naming the fruit.
+
+Create a new image with EXACTLY the same layout (same size, same 2 x 2 grid), where each grey silhouette is
+replaced by a painted illustration of the fruit named in its label.
+
+Style: polished casual mobile game art, like Fruit Ninja or a modern match-3. Clean, bold, slightly glossy
+cartoon rendering, soft cel shading with one simple highlight, a darker outline around the whole fruit in a
+deeper shade of its own colour, rich saturated colours. Each fruit is WHOLE and uncut, seen from the side or
+slightly from above, lit from the top left. Highly detailed, crisp, sharp edges, high resolution.
+
+Hard rules:
+- The fruit must fill its grey silhouette: same shape, same size, same position. Do not make it smaller or
+  larger, and do not rotate it.
+- Nothing may stick out of the silhouette. Stems, leaves and crowns must be painted INSIDE the silhouette on
+  the fruit, not poking out of it.
+- The background stays flat pure magenta (#FF00FF): no shadows, glow, gradient, texture or ground. Do not use
+  magenta or pink-magenta on the fruit itself. Hard clean edges, no pink halo.
+- No text, no labels, no numbers, no borders, no grid lines, no frame. An empty cell stays completely magenta.
+- No extra objects (no knives, loose leaves, bubbles or splashes).
+
+Fruit in this image (reading order, left to right, top to bottom): <PASTE THE ROW OF THE TABLE FOR THIS BATCH>
+```
+
+---
+
+## Quick version: one sheet (softer)
+
+### Generate the one sheet
 
 1. Open ChatGPT (image generation on).
 2. Attach **`art/fruit-guide.png`** (5 x 4 grid: each cell has a grey outline, the fruit's name in the
@@ -63,7 +126,7 @@ five ridges), 12 pomegranate, 13 passionfruit (purple), 14 avocado (dark green, 
 - **Pink/magenta fringe around fruit:** ask for "hard clean edges, no anti-aliased pink halo, flat #FF00FF background".
 - **Style differs between fruits:** regenerate and say which numbers to match to which.
 
-## 2. Put the sheet in the game
+### Put the sheet in the game
 
 Save ChatGPT's picture somewhere (for example `art/chatgpt-sheet.png`), then:
 
@@ -78,12 +141,12 @@ magenta, finds each fruit in its cell, fits it onto the game's outline, prints w
 Check it with `npm run dev` and open `http://localhost:5173/?gallery=1` to see all 19, then play.
 To go back to the drawn fruit, delete `src/game/art/fruits.png`.
 
-## 3. How it works (so you can change it)
+## How it works (so you can change it)
 
 - `scripts/fruit-art.mjs guide` regenerates `art/fruit-guide.png` from the game's real fruit outlines
   (do this if you change a shape in `src/game/sim/fruit.ts`).
-- The sheet in the game is 1280 x 1024: 5 columns x 4 rows of 256 px cells, in the order of
-  `FRUIT_KINDS`. Each fruit is centred on its cell and its outline reaches 112 px from the centre.
+- The sheet in the game is 5 columns x 4 rows of square cells (default 512 px, so 2560 x 2048), in the order of
+  `FRUIT_KINDS`. Each fruit is centred on its cell and its outline reaches 7/16 of the cell size from the centre.
 - `src/game/view/fruitSprites.ts` loads it and draws each fruit as a sprite scaled to the fruit's
   radius. Cut halves are the same sprite hidden by a half-plane mask.
 - Adding a 20th fruit: add the kind in `sim/fruit.ts` (it takes the last free cell), regenerate the
