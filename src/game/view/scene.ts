@@ -46,6 +46,8 @@ function streakSpec(i: number): Omit<Streak, 'g'> {
 }
 
 export function createScene(field: Container): Scene {
+  // The engine draws nothing, so the play field's own colour is the game's job.
+  const backdrop = new Graphics().rect(0, 0, W, H).fill(COLORS.field);
   const streakLayer = new Container();
   const rockLayer = new Container();
   const ground = new Graphics()
@@ -54,7 +56,7 @@ export function createScene(field: Container): Scene {
     .rect(0, GROUND_Y, W, 2)
     .fill(COLORS.groundEdge);
   const playerLayer = new Container();
-  field.addChild(streakLayer, rockLayer, ground, playerLayer);
+  field.addChild(backdrop, streakLayer, rockLayer, ground, playerLayer);
 
   const streaks: Streak[] = [];
   for (let i = 0; i < STREAK_COUNT; i++) {

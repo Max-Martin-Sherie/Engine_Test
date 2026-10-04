@@ -1,9 +1,11 @@
 /** Every tuning number for the game lives here. Units: world units and seconds. */
 
+import { WORLD } from '../../engine/core/config';
+
 const TICKS_PER_SECOND = 60;
 
 export const CONFIG = {
-  world: { width: 360, height: 640 },
+  world: WORLD,
 
   ticksPerSecond: TICKS_PER_SECOND,
   /** Fixed simulation step in seconds. */

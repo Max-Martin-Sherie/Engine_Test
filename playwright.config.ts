@@ -2,7 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 // Set CHROMIUM_PATH to use an installed Chrome/Chromium instead of Playwright's own download.
 const executablePath = process.env['CHROMIUM_PATH'];
-const PORT = 5173;
+// A dedicated port, never the dev server's 5173: e2e always starts its own server, so it can't
+// silently test another project's (or another branch's) dev server that happens to be running.
+const PORT = 5199;
 
 export default defineConfig({
   testDir: 'e2e',
@@ -19,9 +21,9 @@ export default defineConfig({
     launchOptions: executablePath ? { executablePath } : {},
   },
   webServer: {
-    command: 'npm run dev',
+    command: `npm run dev -- --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env['CI'],
+    reuseExistingServer: false,
     timeout: 60_000,
   },
 });

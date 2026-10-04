@@ -2,7 +2,7 @@
  * GAME: Rockfall's rules. The engine (step.ts) owns the lifecycle; this file holds the player,
  * the falling rocks and the collisions. Stay pure: randomness comes from `state.rng` only.
  */
-import { nextRange } from '../core/rng';
+import { nextRange } from '../../engine/core/rng';
 import { CONFIG } from './config';
 import { fallSpeed, spawnInterval } from './difficulty';
 import type { GameState, Input } from './types';

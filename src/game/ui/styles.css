@@ -12,69 +12,9 @@
     'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
-* {
-  box-sizing: border-box;
-}
-
-html,
 body {
-  margin: 0;
-  height: 100%;
-  overflow: hidden;
-  background: var(--letterbox);
   color: var(--text);
   font-family: var(--font);
-  /* The game owns every gesture: no scrolling, zooming, pull-to-refresh, text selection. */
-  touch-action: none;
-  overscroll-behavior: none;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-  -webkit-tap-highlight-color: transparent;
-}
-
-#game {
-  position: fixed;
-  inset: 0;
-}
-
-#game canvas {
-  display: block;
-}
-
-/* ---- overlay ---------------------------------------------------------------------------- */
-
-.ui-root {
-  position: fixed;
-  inset: 0;
-  /* Own stacking context: keeps the scrims (z-index: -1) above the canvas instead of behind it. */
-  z-index: 1;
-  pointer-events: none; /* only the screens' own content takes input */
-}
-
-.safe-probe {
-  position: fixed;
-  left: 0;
-  top: 0;
-  width: 0;
-  height: 0;
-  visibility: hidden;
-  padding-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
-  padding-right: max(env(safe-area-inset-right, 0px), var(--safe-area-inset-right, 0px));
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
-  padding-left: max(env(safe-area-inset-left, 0px), var(--safe-area-inset-left, 0px));
-}
-
-/* The stage is the play field's rectangle. --u is one world unit in CSS pixels. */
-.stage {
-  position: absolute;
-  padding: var(--inset-top, 0px) var(--inset-right, 0px) var(--inset-bottom, 0px)
-    var(--inset-left, 0px);
-  --space: calc(var(--u, 1px) * 12);
-}
-
-[hidden] {
-  display: none !important;
 }
 
 /* ---- HUD -------------------------------------------------------------------------------- */

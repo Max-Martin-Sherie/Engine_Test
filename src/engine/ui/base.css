@@ -1,0 +1,64 @@
+/*
+ * Engine base styles: structure only, no look. A game sets --letterbox (the colour around the
+ * play field) and everything visual in its own stylesheet.
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--letterbox, #000);
+  /* The game owns every gesture: no scrolling, zooming, pull-to-refresh, text selection. */
+  touch-action: none;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+}
+
+#game canvas {
+  display: block;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.ui-root {
+  position: fixed;
+  inset: 0;
+  /* Own stacking context, so a game's backdrops (z-index: -1) stay above the canvas. */
+  z-index: 1;
+  pointer-events: none; /* only a game's interactive elements take input */
+}
+
+.safe-probe {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  visibility: hidden;
+  padding-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+  padding-right: max(env(safe-area-inset-right, 0px), var(--safe-area-inset-right, 0px));
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
+  padding-left: max(env(safe-area-inset-left, 0px), var(--safe-area-inset-left, 0px));
+}
+
+/* The stage is the play field's rectangle; stage.ts sets its position, size and variables. */
+.stage {
+  position: absolute;
+  padding: var(--inset-top, 0px) var(--inset-right, 0px) var(--inset-bottom, 0px)
+    var(--inset-left, 0px);
+}

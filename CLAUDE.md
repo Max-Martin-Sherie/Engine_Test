@@ -1,9 +1,10 @@
 # Game Engine
 
-A barebones portrait 9:16 mobile web game engine: TypeScript, Vite, PixiJS v8, Capacitor 8, and
-AdMob rewarded test ads on Android/iOS. **This branch (`main`) is the engine only - there is no
-game here.** A placeholder rule ends each run after a few seconds so the whole loop (title, play,
-die, revive ad, play again, pause) works and is tested. Needs **Node >= 22.12**.
+A portrait 9:16 mobile web game **engine**: TypeScript, Vite, PixiJS v8, Capacitor 8, AdMob rewarded
+ads. It loads the libraries and services, runs a fixed-timestep loop, and draws **nothing**.
+Run alone (`main` branch) it shows a blank black screen: that is correct. Menus, HUD, score, rules,
+art and the flow between screens belong to a *game*, which is a branch of this repo.
+Needs **Node >= 22.12**.
 
 ## Branching: main is the engine, every game is a branch
 
@@ -14,22 +15,38 @@ die, revive ad, play again, pause) works and is tested. Needs **Node >= 22.12**.
   each. Never develop engine fixes inside a game branch and port them back. Never merge a game
   branch into `main`.
 - Keep engine commits separate from game commits.
-- A game should only need to edit the "GAME:" files below. Editing other files makes later merges
-  conflict; if a game needs a new hook, add the hook to the engine on `main` instead.
-- Do not push without being asked.
+- A game lives in `src/game/` (plus its own tests, e2e specs and identity files). If a game needs
+  something from the engine that is missing, add a hook to the engine on `main`; don't edit
+  `src/engine/` inside a game branch.
+- Do not push without being asked. Published branches (origin/*) are never rewritten.
 
-### The files a game owns ("GAME:" in their header comment)
+## Layout
 
-| File | What a game puts there |
-| --- | --- |
-| `src/sim/game.ts` | Its rules and extra state: `GameData`, `createGameData`, `updateGame` (return true on death), `onRevive`, `syncGamePrev`, `debugSnapshot` |
-| `src/sim/config.ts` | Its tuning numbers (keep `world`, `ticksPerSecond`, `dt`, `reviveGrace`) |
-| `src/sim/index.ts` | Extra exports its tests need |
-| `src/view2d/scene.ts`, `palette.ts` (+ new art files) | Everything drawn in the play field |
-| `src/gameInfo.ts` | Game id, title, tagline, score labels, optional title art |
-| `tests/`, `e2e/` | Tests for its own rules (keep the engine tests passing) |
-| `capacitor.config.json`, `index.html`, `public/favicon.svg`, `package.json` name | Its identity (appId, name) |
-| `android/`, `ios/` | Generated per game by `npm run android:setup` / `ios:setup`; never on `main` |
+```
+src/main.ts            boot(createGame): the only file that sees both sides
+src/engine/            the engine - never imports from src/game
+  core/                loop, pointer input, seeded RNG, safe storage, world size + layout math
+  services/            ads (fake in browsers, AdMob on devices) and analytics
+  view/                PixiJS bootstrap: letterboxed canvas + an empty, clipped `field` layer
+  ui/                  invisible helpers: createStage() sizes a stage over the field, handles
+                       safe-area insets; base.css is structure only (no fonts or colours)
+  boot.ts, context.ts  wires it together; defines EngineContext / Game / GameFactory
+src/game/              the game - everything the player sees and does
+  index.ts             createGame(context): Game      (empty on main)
+  (a game adds)        sim/ (pure rules), view/ (drawing), ui/ (DOM screens, CSS), flow, info
+```
+
+### The contract
+
+`createGame(context: EngineContext): Game`. The context gives the game: `input` (pointer, client
+space), `view` (`view.field` to draw into, `view.clientToWorldX`, `view.setBackground`), `ads`,
+`analytics`, `params` (URL query), `uiRoot` (#ui), `world` (360 x 640) and `resetClock()`. The game
+returns `{ step, update(dt), render(alpha) }`: a fixed step in seconds, a simulation step, and a
+function that updates what is drawn. The engine calls `render`, then draws the frame.
+
+The engine starts the loop immediately and starts the renderer and ad SDK in the background; a
+game's DOM UI must never wait for them. `view.field` is usable at once, before the renderer is
+ready.
 
 ## Commands
 
@@ -45,48 +62,42 @@ die, revive ad, play again, pause) works and is tested. Needs **Node >= 22.12**.
 | `npm run android` | build, `cap sync android`, `cap run android` |
 | `npm run ios:setup` / `npm run ios` | same for iOS (macOS only) |
 
-URL flags: `?seed=N` makes every run reproducible; `?ads=no-fill` / `?ads=skip` make the fake ad
-service fail. `window.__game` (`phase`, `score`, `alive`, `debug`) exists in dev builds only.
+URL flags: `?ads=no-fill` / `?ads=skip` make the fake ad service fail; a game may read others from
+`context.params` (RockFall uses `?seed=N`). In dev builds `window.__engine` (`viewReady`,
+`renderer`, `fit`, `adsReady`) is a read-only snapshot for tests; a game can add its own.
 
 Set `CHROMIUM_PATH` to run e2e against an installed Chrome instead of Playwright's download.
 
-## Architecture
+## Architecture rules (enforced by `tests/architecture.test.ts`)
 
-Strict dependency direction: **main -> ui / view2d / services -> sim -> core**.
-A layer may import only from layers to its right. `ui`, `view2d` and `services` never import each
-other. `tests/architecture.test.ts` enforces this, so `npm run check` fails on a violation.
+Dependency direction: **main -> game -> engine**, and inside each:
 
-- `src/sim/` - pure game rules. **No Pixi, DOM, `window`, timers, `Date` or `Math.random`.**
-  Seeded mulberry32 RNG whose state lives in `GameState`. Fixed `dt` of 1/60 via
-  `step(state, input)`. `step.ts` (engine) owns the lifecycle - tick, score, death, revive, events
-  - and calls the hooks in `game.ts`. Entities keep previous positions for render interpolation.
-  Events (`died`, `revived`) are drained by `main` with `drainEvents`. **All tuning lives in
-  `sim/config.ts`.**
-- `src/core/` - fixed-timestep loop (accumulator, 0.25 s frame clamp, `render(alpha)`), pointer
-  input in client space, RNG, safe `localStorage` wrapper.
-- `src/view2d/` - Pixi. `gameView.ts` (engine): `autoStart: false` (our loop calls `app.render()`),
-  `preference: 'webgpu'` with automatic WebGL fallback, `resizeTo` the host, `autoDensity`,
-  resolution capped at 2, letterboxing, masked play field, `clientToWorldX()`. `scene.ts` (game)
-  draws into the field. **Reads state, never writes it.**
-- `src/ui/` - DOM overlay with real `<button>`s. Screens: title, HUD, game over, paused,
-  waiting-for-ad. HUD is `pointer-events: none`. Handles safe-area insets. **Never call
-  `.focus()` on buttons** (focus rings on touch). Callbacks only; never touches `GameState`.
-- `src/services/` - `AdService` and `AnalyticsService` interfaces. No method may throw or reject
-  into game code (`guardAdService` is the backstop). Browser: fake ads + console analytics. Native:
-  AdMob, imported lazily.
-- `src/main.ts` - composition root and phase state machine (`title | playing | paused | over | ad`).
-  Keep it thin. The loop starts immediately; ad init runs in the background and must never block
-  the title screen.
+- engine: `boot` -> `services` / `view` / `ui` -> `core`. These three never import each other.
+- game: `flow` (root) -> `ui` / `view` -> `sim` -> `engine/core`.
 
-## Rules
+Further rules:
+
+- **The engine never imports the game and draws nothing** (no sprites, fonts or colours in `src/engine`).
+- `game/sim` and `engine/core/{rng,layout,config}` are pure: **no Pixi, DOM, `window`, timers,
+  `Date` or `Math.random`**. Randomness comes from the seeded RNG held in the game state; tuning
+  numbers live in the game's `sim/config.ts`.
+- Only `view` layers import `pixi.js`; only `engine/services` imports Capacitor / AdMob.
+- `game/ui` never touches the game state (callbacks and plain values only); `game/view` reads
+  state and never writes it.
+- **Never call `.focus()` on buttons** (focus rings on touch). A HUD must be `pointer-events: none`.
+- Services never throw or reject into game code (`guardAdService` is the backstop).
+
+## Rules for working here
 
 1. Run `npm run check` after every change.
 2. New gameplay logic gets a test in `tests/`.
 3. After any visual change, run `npm run e2e` and **open the screenshots** in `e2e/screenshots/`.
    Passing tests do not prove the canvas drew anything.
 4. Never hand-edit `android/` or `ios/`. Change `scripts/setup-native.mjs` instead (it is
-   idempotent and has tests in `tests/setup-native.test.ts`), then re-run it.
-5. Keep tuning numbers in `sim/config.ts`; no magic numbers in `sim/step.ts`.
+   idempotent and has tests in `tests/setup-native.test.ts`), then re-run it. Native projects are
+   generated per game and never exist on `main`.
+5. When writing files from a shell, use the editor tools or single-quoted heredocs: backticks inside
+   double quotes run as commands.
 
 ## AdMob gotchas (verified against the plugin's native source)
 
@@ -110,3 +121,6 @@ other. `tests/architecture.test.ts` enforces this, so `npm run check` fails on a
 - Vite 8 needs Node >= 20.19, Vitest 5 and the Capacitor 8 CLI need Node >= 22.
 - Capacitor 8's Android library compiles at Java 21; building Android needs JDK 21+ and the Android SDK.
 - `cap add` fails without a built `dist/`, so the `*:setup` scripts build first.
+- On phones Pixi appends a stray accessibility `<button>` to `<body>`; `engine/view/view.ts` removes
+  it after init (the engine e2e fails if that stops working).
+- Git checks files out as LF on every machine (`.gitattributes`).

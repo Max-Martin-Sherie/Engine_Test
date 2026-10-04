@@ -1,4 +1,4 @@
-import { CONFIG } from '../sim';
+import { createStage } from '../../engine/ui/stage';
 import './styles.css';
 
 export type Screen = 'title' | 'playing' | 'paused' | 'over' | 'ad';
@@ -37,8 +37,6 @@ export interface Ui {
   setGameOver(info: GameOverInfo): void;
 }
 
-const { width: WORLD_W, height: WORLD_H } = CONFIG.world;
-
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   className: string,
@@ -67,12 +65,8 @@ function screenSection(name: Screen, label: string, dim: 'light' | 'heavy'): HTM
 
 /** Builds the overlay inside `root` (a full-window element). Pure DOM; knows nothing about GameState. */
 export function createUi(root: HTMLElement, callbacks: UiCallbacks, info: GameInfo): Ui {
-  root.classList.add('ui-root');
-
-  // Reads the device's safe-area insets as pixels. Capacitor's SystemBars plugin exposes them as
-  // --safe-area-inset-* on Android, where env() is unreliable; iOS and browsers provide env().
-  const probe = el('div', 'safe-probe');
-  const stage = el('div', 'stage');
+  // The engine sizes this element exactly over the letterboxed play field and handles safe-area insets.
+  const stage = createStage(root).element;
 
   // HUD: score and best. Never takes pointer events, so touches fall through to the game.
   const hud = el('div', 'hud');
@@ -129,7 +123,6 @@ export function createUi(root: HTMLElement, callbacks: UiCallbacks, info: GameIn
   waiting.append(waitingPanel);
 
   stage.append(hud, title, paused, over, waiting);
-  root.append(probe, stage);
 
   const screens: Record<Screen, HTMLElement[]> = {
     title: [title],
@@ -160,34 +153,6 @@ export function createUi(root: HTMLElement, callbacks: UiCallbacks, info: GameIn
         break;
     }
   });
-
-  // Keep the stage exactly over the letterboxed play field, and inset it from notches.
-  function layout(): void {
-    const w = root.clientWidth;
-    const h = root.clientHeight;
-    const unit = Math.min(w / WORLD_W, h / WORLD_H);
-    const stageW = WORLD_W * unit;
-    const stageH = WORLD_H * unit;
-    const barX = (w - stageW) / 2;
-    const barY = (h - stageH) / 2;
-    const probeStyle = getComputedStyle(probe);
-    // Only the part of an inset that the stage actually reaches into matters.
-    const inset = (px: string, bar: number): string =>
-      `${Math.max(0, (Number.parseFloat(px) || 0) - bar)}px`;
-
-    stage.style.left = `${barX}px`;
-    stage.style.top = `${barY}px`;
-    stage.style.width = `${stageW}px`;
-    stage.style.height = `${stageH}px`;
-    stage.style.setProperty('--u', `${unit}px`);
-    stage.style.setProperty('--inset-top', inset(probeStyle.paddingTop, barY));
-    stage.style.setProperty('--inset-bottom', inset(probeStyle.paddingBottom, barY));
-    stage.style.setProperty('--inset-left', inset(probeStyle.paddingLeft, barX));
-    stage.style.setProperty('--inset-right', inset(probeStyle.paddingRight, barX));
-  }
-  new ResizeObserver(layout).observe(root);
-  window.addEventListener('resize', layout);
-  layout();
 
   let shownScore = -1;
   let shownBest = -1;

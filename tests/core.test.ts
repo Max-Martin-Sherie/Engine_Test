@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { FixedLoop } from '../src/core/loop';
-import { createRng, nextFloat, nextRange } from '../src/core/rng';
-import { safeGetItem, safeGetNumber, safeSetItem, safeSetNumber } from '../src/core/storage';
+import { FixedLoop } from '../src/engine/core/loop';
+import { createRng, nextFloat, nextRange } from '../src/engine/core/rng';
+import { safeGetItem, safeGetNumber, safeSetItem, safeSetNumber } from '../src/engine/core/storage';
 
 describe('rng (mulberry32)', () => {
   // The well-known reference implementation, as a closure.

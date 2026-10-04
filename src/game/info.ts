@@ -1,4 +1,4 @@
-import './rockfall.css';
+import './ui/rockfall.css';
 import type { GameInfo } from './ui';
 
 export const GAME_ID = 'rockfall';

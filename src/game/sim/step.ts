@@ -1,4 +1,4 @@
-import { createRng } from '../core/rng';
+import { createRng } from '../../engine/core/rng';
 import { CONFIG } from './config';
 import { createGameData, onRevive, syncGamePrev, updateGame } from './game';
 import type { GameEvent, GameState, Input } from './types';

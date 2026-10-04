@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CONFIG, createState, drainEvents, revive, scoreOf, step, timeOf, type GameState, type Input } from '../src/sim';
+import { CONFIG, createState, drainEvents, revive, scoreOf, step, timeOf, type GameState, type Input } from '../src/game/sim';
 
 /**
  * Engine lifecycle tests: ticks, score, death, revive, events, determinism.
@@ -10,7 +10,7 @@ import { CONFIG, createState, drainEvents, revive, scoreOf, step, timeOf, type G
  */
 const DIE_EVERY = 300;
 
-vi.mock('../src/sim/game', () => ({
+vi.mock('../src/game/sim/game', () => ({
   createGameData: () => ({}),
   updateGame: (state: { tick: number; invuln: number }) => state.invuln <= 0 && state.tick % DIE_EVERY === 0,
   onRevive: () => {},

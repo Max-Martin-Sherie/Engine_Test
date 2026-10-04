@@ -1,5 +1,5 @@
 import type { Graphics } from 'pixi.js';
-import { createRng, nextFloat } from '../core/rng';
+import { createRng, nextFloat } from '../../engine/core/rng';
 import { COLORS, mixColor } from './palette';
 
 /** Cheap integer hash so a rock's look is a pure function of its sim id. */

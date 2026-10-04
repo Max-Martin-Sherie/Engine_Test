@@ -7,11 +7,14 @@ Steer the sand-coloured pebble by dragging (touch) or moving the mouse. Rocks fa
 often the longer you survive; your score is the seconds you last. One "Watch ad to continue" revive
 per run clears the field and gives 1.5 s of invulnerability.
 
-- App ID: `com.maxmartin.rockfall` (set in `capacitor.config.json`; `android/` was generated from it)
-- Tuning: `src/sim/config.ts` (spawn rate, fall speed, hitbox, speeds)
-- Rules: `src/sim/game.ts`, `src/sim/difficulty.ts`
-- Look: `src/view2d/scene.ts`, `rockArt.ts`, `palette.ts`; title art in `src/gameInfo.ts` and `src/rockfall.css`
-- Tests: `tests/rockfall.test.ts` (rules) and `e2e/game.spec.ts`; `tests/engine-lifecycle.test.ts`
-  comes from the engine and must keep passing unchanged
+Everything the player sees or does lives in `src/game/`; `src/engine/` is unchanged from `main`.
+
+- App ID: `com.maxmartin.rockfall` (`capacitor.config.json`; `android/` was generated from it)
+- `src/game/index.ts`: the flow (title / playing / paused / over / ad), best score, revive-with-ad
+- `src/game/sim/`: pure rules (`game.ts`), lifecycle (`step.ts`), tuning (`config.ts`, `difficulty.ts`)
+- `src/game/view/`: drawing (`scene.ts`, `rockArt.ts`, `palette.ts`)
+- `src/game/ui/`: DOM screens, HUD and CSS; title art in `info.ts` + `ui/rockfall.css`
+- Tests: `tests/rockfall.test.ts` (rules), `tests/lifecycle.test.ts` (mocked rules), `e2e/game.spec.ts`.
+  The engine's own tests (`core`, `layout`, `ads`, `admob`, `architecture`, `e2e/engine.spec.ts`) come from `main`.
 
 Engine updates arrive with `git merge main`.

@@ -11,8 +11,8 @@ import {
   resolveRewardedConfig,
   TEST_REWARDED_ANDROID,
   TEST_REWARDED_IOS,
-} from '../src/services/admobAds';
-import type { AnalyticsService } from '../src/services/analytics';
+} from '../src/engine/services/admobAds';
+import type { AnalyticsService } from '../src/engine/services/analytics';
 
 type Listener = (...args: unknown[]) => void;
 

@@ -11,7 +11,7 @@ import {
   type GameState,
   type Input,
   type Rock,
-} from '../src/sim';
+} from '../src/game/sim';
 
 const { dt } = CONFIG;
 const { width: W } = CONFIG.world;

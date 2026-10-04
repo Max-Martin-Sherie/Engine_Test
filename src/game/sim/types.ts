@@ -1,4 +1,4 @@
-import type { RngState } from '../core/rng';
+import type { RngState } from '../../engine/core/rng';
 import type { GameData } from './game';
 
 export type GameEvent = { type: 'died'; score: number } | { type: 'revived' };
