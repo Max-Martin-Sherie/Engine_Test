@@ -3,8 +3,8 @@ import { button, coinAmount, el, formatTime, section, setLabel, setText } from '
 import { skinPreview, type SkinPreviewData } from './skinPreview';
 import './styles.css';
 
-export type Screen = 'menu' | 'hud' | 'paused' | 'tryAgain' | 'result' | 'shop' | 'settings' | 'ad';
-export type UiMode = 'classic' | 'arcade';
+export type Screen = 'menu' | 'hud' | 'paused' | 'tryAgain' | 'result' | 'shop' | 'settings' | 'ad' | 'none';
+export type UiMode = 'classic' | 'arcade' | 'survival';
 export type SettingKey = 'sound' | 'haptics';
 export type Tone = 'perfect' | 'great' | 'good' | 'miss' | 'cancel' | 'bomb';
 
@@ -31,6 +31,7 @@ export interface MenuInfo {
   coins: number;
   bestClassic: number;
   bestArcade: number;
+  bestSurvival: number;
 }
 
 export interface HudInfo {
@@ -43,6 +44,8 @@ export interface HudInfo {
   timeLeft: number;
   strikes: number;
   maxStrikes: number;
+  /** Survival: tolerance lost to earlier misses. */
+  penalty: number;
 }
 
 export interface TryAgainInfo {
@@ -112,6 +115,7 @@ export interface Ui {
 
 const REASONS: Record<string, string> = {
   tolerance: 'Not even enough',
+  budget: 'Out of margin',
   strikes: 'Three strikes',
   time: "Time's up",
 };
@@ -150,10 +154,13 @@ export function createUi(root: HTMLElement, cb: UiCallbacks): Ui {
   const menuCoins = el('div', 'coins-pill');
   const classicBest = el('span', 'btn-sub');
   const arcadeBest = el('span', 'btn-sub');
+  const survivalBest = el('span', 'btn-sub');
   const classicButton = button('Classic', 'classic', 'btn-lime btn-big');
   const arcadeButton = button('Arcade', 'arcade', 'btn-citrus btn-big');
+  const survivalButton = button('Survival', 'survival', 'btn-berry btn-big');
   classicButton.append(classicBest);
   arcadeButton.append(arcadeBest);
+  survivalButton.append(survivalBest);
   const logo = el('div', 'logo-art');
   logo.setAttribute('aria-hidden', 'true');
   logo.append(el('i', 'logo-half logo-half-a'), el('i', 'logo-half logo-half-b'));
@@ -166,6 +173,7 @@ export function createUi(root: HTMLElement, cb: UiCallbacks): Ui {
     el('p', 'tagline', 'Cut it exactly in half'),
     classicButton,
     arcadeButton,
+    survivalButton,
     menuRow,
   );
   menu.append(menuCoins, menuPanel);
@@ -256,6 +264,7 @@ export function createUi(root: HTMLElement, cb: UiCallbacks): Ui {
     shop: [shop],
     settings: [settings],
     ad: [waiting],
+    none: [],
   };
   const all = [hud, menu, paused, tryAgain, result, shop, settings, waiting];
 
@@ -269,6 +278,7 @@ export function createUi(root: HTMLElement, cb: UiCallbacks): Ui {
     switch (node.dataset['action']) {
       case 'classic': return cb.onPlay('classic');
       case 'arcade': return cb.onPlay('arcade');
+      case 'survival': return cb.onPlay('survival');
       case 'shop': return cb.onOpenShop();
       case 'settings': return cb.onOpenSettings();
       case 'back': return cb.onBack();
@@ -298,10 +308,11 @@ export function createUi(root: HTMLElement, cb: UiCallbacks): Ui {
       for (const node of all) node.hidden = !visible.has(node);
     },
 
-    setMenu({ coins, bestClassic, bestArcade }) {
+    setMenu({ coins, bestClassic, bestArcade, bestSurvival }) {
       menuCoins.replaceChildren(coinAmount(coins));
       setText(classicBest, bestClassic > 0 ? `Best ${bestClassic}` : 'Take your time');
       setText(arcadeBest, bestArcade > 0 ? `Best ${bestArcade}` : 'Beat the clock');
+      setText(survivalBest, bestSurvival > 0 ? `Best ${bestSurvival}` : 'Misses cost margin');
     },
 
     setHud(info) {
@@ -314,7 +325,8 @@ export function createUi(root: HTMLElement, cb: UiCallbacks): Ui {
         }
         [...strikes.children].forEach((node, i) => node.classList.toggle('is-lost', i < info.strikes));
       } else {
-        setText(metaLabel, `Fruit ${info.fruits + 1}`);
+        const lost = info.mode === 'survival' && info.penalty > 0.05 ? ` · −${info.penalty.toFixed(1)}` : '';
+        setText(metaLabel, `Fruit ${info.fruits + 1}${lost}`);
         hudMeta.classList.remove('is-low');
         strikes.replaceChildren();
       }
@@ -359,7 +371,7 @@ export function createUi(root: HTMLElement, cb: UiCallbacks): Ui {
       setText(tryReason, REASONS[info.reason] ?? 'Missed');
       setText(
         tryDetail,
-        info.reason === 'tolerance'
+        info.reason === 'tolerance' || info.reason === 'budget'
           ? `You were off by ${info.deviation.toFixed(1)} points. The limit was ${info.tolerance.toFixed(1)}.`
           : info.mode === 'arcade'
             ? 'Take some time back and keep slicing.'
@@ -374,7 +386,7 @@ export function createUi(root: HTMLElement, cb: UiCallbacks): Ui {
     },
 
     setResult(info) {
-      setText(resultMode, info.mode === 'classic' ? 'Classic' : 'Arcade');
+      setText(resultMode, { classic: 'Classic', arcade: 'Arcade', survival: 'Survival' }[info.mode]);
       setText(resultScore, String(info.score));
       resultBest.textContent = info.newBest ? 'New best!' : `Best ${info.best}`;
       resultBest.classList.toggle('is-new-best', info.newBest);

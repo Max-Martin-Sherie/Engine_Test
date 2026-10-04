@@ -352,13 +352,13 @@ describe('arcade', () => {
       if (run.fruits.length === 2) {
         twins++;
         expect(run.tolerance).toBeCloseTo(
-          CONFIG.tolerance.arcade.start * Math.pow(CONFIG.tolerance.arcade.floor / CONFIG.tolerance.arcade.start, (CONFIG.arcade.twinFrom + 2) / 40) * CONFIG.arcade.twinToleranceFactor,
+          CONFIG.tolerance.arcade.start * Math.pow(CONFIG.tolerance.arcade.floor / CONFIG.tolerance.arcade.start, (CONFIG.arcade.twinFrom + 2) / CONFIG.tolerance.arcade.fruitsToFloor) * CONFIG.arcade.twinToleranceFactor,
           9,
         );
       }
     }
-    expect(twins).toBeGreaterThan(5);
-    expect(twins).toBeLessThan(35);
+    expect(twins).toBeGreaterThan(2);
+    expect(twins).toBeLessThan(25);
     for (let seed = 1; seed <= 20; seed++) {
       const early = createRun('arcade', seed);
       expect(early.fruits).toHaveLength(1);

@@ -38,6 +38,7 @@ test.describe('main menu', () => {
     await page.goto('/?seed=1');
     await expect(button(page, /^Classic/)).toBeVisible();
     await expect(button(page, /^Arcade/)).toBeVisible();
+    await expect(button(page, /^Survival/)).toBeVisible();
     await expect(button(page, 'Skins')).toBeVisible();
     await expect(button(page, 'Settings')).toBeVisible();
     expect(await phase(page)).toBe('menu');
@@ -342,6 +343,58 @@ test.describe('arcade', () => {
   });
 });
 
+test.describe('survival', () => {
+  test('a miss costs margin instead of the run; running out of margin ends it; a try takes the last miss back', async ({ page }) => {
+    const problems = watchForErrors(page);
+    await seedProfile(page, { coins: 500 });
+    await page.goto('/?seed=4');
+    await button(page, /^Survival/).click();
+    await waitForFruit(page);
+    const first = (await runDump(page))!;
+    expect(first.mode).toBe('survival');
+    expect(first.fruits).toHaveLength(1);
+    expect(first.penalty).toBe(0);
+    await shot(page, '15-survival-start');
+
+    // Off by 20 points with 12 allowed: the run goes on and 8 points of margin are gone.
+    await cutFruit(page, 20);
+    await expect(page.getByText(/^Margin −/)).toBeVisible();
+    await shotNow(page, '16-survival-margin');
+    expect(await phase(page)).toBe('playing');
+    await waitForFruit(page);
+    const hurt = (await runDump(page))!;
+    expect(hurt.penalty).toBeGreaterThan(7.5);
+    expect(hurt.penalty).toBeLessThan(8.5);
+    expect(hurt.tolerance).toBeCloseTo(first.tolerance - hurt.penalty, 1);
+    expect(hurt.round).toBe(0);
+    await expect(page.getByText(/^Fruit 1 · −/)).toBeVisible();
+    await shot(page, '17-survival-reduced');
+
+    // A good cut still scores and does not give the margin back.
+    await cutFruit(page, 0);
+    await expect.poll(async () => (await runDump(page))?.round).toBe(1);
+    await waitForFruit(page);
+    const afterGood = (await runDump(page))!;
+    expect(afterGood.penalty).toBeCloseTo(hurt.penalty, 5);
+
+    // A big miss uses up what is left: the run ends here, on the same fruit.
+    const fruitId = afterGood.fruits[0]!.id;
+    await cutFruit(page, 25);
+    await waitForPhase(page, 'tryAgain');
+    await expect(page.getByText('Out of margin')).toBeVisible();
+    await shot(page, '18-survival-out');
+
+    // Trying again with coins puts the margin back to where it was before that miss.
+    await button(page, /^Try again/).click();
+    await waitForPhase(page, 'playing');
+    const back = (await runDump(page))!;
+    expect(back.fruits[0]!.id).toBe(fruitId);
+    expect(back.penalty).toBeCloseTo(hurt.penalty, 5);
+    expect(back.restarts).toBe(1);
+    expect(problems).toEqual([]);
+  });
+});
+
 test.describe('pausing', () => {
   test('the pause button freezes the run; Resume continues it', async ({ page }) => {
     await page.goto('/?seed=2&time=60');
@@ -427,5 +480,18 @@ test.describe('wide desktop window', () => {
     await expect.poll(async () => (await runDump(page))?.round).toBe(1);
     await waitForFruit(page);
     await shot(page, '16-wide-playing');
+  });
+});
+
+test.describe('the fruit', () => {
+  test('every fruit draws, whole on the outside and cut on the inside, without errors', async ({ page }) => {
+    const problems = watchForErrors(page);
+    for (const view of ['whole', 'cut'] as const) {
+      await page.goto(`/?gallery=${view}`);
+      await expect.poll(async () => (await page.evaluate(() => window.__engine?.viewReady)) === true).toBe(true);
+      await page.waitForTimeout(400); // a frame or two with everything on screen
+      await shot(page, `17-gallery-${view}`);
+    }
+    expect(problems).toEqual([]);
   });
 });

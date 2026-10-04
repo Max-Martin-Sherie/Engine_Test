@@ -501,8 +501,8 @@ body {
 }
 
 .btn-big {
-  padding: calc(var(--u, 1px) * 18) calc(var(--u, 1px) * 24);
-  font-size: calc(var(--u, 1px) * 26);
+  padding: calc(var(--u, 1px) * 13) calc(var(--u, 1px) * 24);
+  font-size: calc(var(--u, 1px) * 24);
 }
 
 .btn-sub {
@@ -525,8 +525,15 @@ body {
   box-shadow: 0 calc(var(--u, 1px) * 5) 0 var(--citrus-dark);
 }
 
+.btn-berry {
+  background: var(--berry);
+  color: var(--cream);
+  box-shadow: 0 calc(var(--u, 1px) * 5) 0 #7a2aa8;
+}
+
 .btn-lime:active,
-.btn-citrus:active {
+.btn-citrus:active,
+.btn-berry:active {
   transform: translateY(calc(var(--u, 1px) * 4));
   box-shadow: 0 calc(var(--u, 1px) * 1) 0 rgba(0, 0, 0, 0.3);
 }

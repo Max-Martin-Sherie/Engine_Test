@@ -1,12 +1,11 @@
 import { createRng, nextFloat, nextRange, type RngState } from '../../engine/core/rng';
 import { CONFIG, type Mode } from './config';
 import { evaluateCut, segmentHitsCircle, type CancelReason } from './cut';
-import { makeFruitShape, pickKind, type FruitKind, type FruitShape } from './fruit';
+import { FRUIT_KINDS, makeFruitShape, pickKind, type FruitKind, type FruitShape } from './fruit';
 import { place, type Polygon, type Vec } from './geometry';
 import {
   accuracyFor,
   fruitRadiusFor,
-  kindsFor,
   nextCombo,
   pointsFor,
   ratingFor,
@@ -46,7 +45,7 @@ export interface Bomb {
 }
 
 export type RunPhase = 'playing' | 'failed' | 'over';
-export type FailReason = 'tolerance' | 'strikes' | 'time';
+export type FailReason = 'tolerance' | 'strikes' | 'time' | 'budget';
 
 /** One fruit as it was at the moment it was cut, so the view can animate the two halves. */
 export interface CutPiece {
@@ -78,6 +77,8 @@ export type RunEvent =
     }
   | { type: 'bomb'; x: number; y: number }
   | { type: 'strike'; strikes: number }
+  /** Survival: a miss took `lost` points off the tolerance; `remaining` is what is left for the next fruit. */
+  | { type: 'margin'; lost: number; remaining: number }
   | { type: 'failed'; reason: FailReason }
   | { type: 'restarted'; restarts: number }
   | { type: 'over' };
@@ -108,6 +109,10 @@ export interface Run {
   /** Arcade only. */
   timeLeft: number;
   strikes: number;
+  /** Survival only: tolerance lost to earlier misses, taken off the curve for good. */
+  penalty: number;
+  /** Survival: the penalty before the miss that ended the run; a retry goes back to it. */
+  penaltyBeforeFail: number;
   /** Tries used this run; sets the price of the next one. */
   restarts: number;
   events: RunEvent[];
@@ -142,11 +147,18 @@ export function createRun(mode: Mode, seed: number, options: { startTime?: numbe
     tolerance: toleranceFor(mode, 0),
     timeLeft: mode === 'arcade' ? (options.startTime ?? ARCADE.startTime) : 0,
     strikes: 0,
+    penalty: 0,
+    penaltyBeforeFail: 0,
     restarts: 0,
     events: [],
   };
   spawnRound(run);
   return run;
+}
+
+/** The tolerance for the next fruit: the curve for the round, less anything Survival has taken off. */
+export function currentTolerance(run: Run): number {
+  return Math.max(0, toleranceFor(run.mode, run.round) - run.penalty);
 }
 
 /** The fruit's outline in world coordinates. */
@@ -177,16 +189,17 @@ interface ArcadeSpec {
 }
 
 function arcadeSpec(round: number, rng: RngState): ArcadeSpec {
-  const drift = round >= ARCADE.driftFrom ? Math.min(ARCADE.maxDrift, 18 + 5 * (round - ARCADE.driftFrom)) : 0;
-  const spinSpeed = round >= ARCADE.spinFrom ? Math.min(ARCADE.maxSpin, 0.5 + 0.1 * (round - ARCADE.spinFrom)) : 0;
+  const drift = round >= ARCADE.driftFrom ? Math.min(ARCADE.maxDrift, ARCADE.driftBase + ARCADE.driftPerRound * (round - ARCADE.driftFrom)) : 0;
+  const spinSpeed = round >= ARCADE.spinFrom ? Math.min(ARCADE.maxSpin, ARCADE.spinBase + ARCADE.spinPerRound * (round - ARCADE.spinFrom)) : 0;
   const spin = nextFloat(rng) < 0.5 ? -spinSpeed : spinSpeed;
-  const bombs = round >= ARCADE.bombsFrom ? (round >= 18 ? 2 : 1) : 0;
+  const bombs = round >= ARCADE.bombsFrom ? (round >= ARCADE.secondBombFrom ? 2 : 1) : 0;
   const twin = round >= ARCADE.twinFrom && nextFloat(rng) < ARCADE.twinChance;
   return { twin, drift, spin, bombs };
 }
 
 function makeFruit(run: Run, radius: number, x: number, y: number, speed: number, spin: number): Fruit {
-  const kind = pickKind(kindsFor(run.round), run.rng);
+  // Any fruit can come at any time: the kind never says anything about how hard the round is.
+  const kind = pickKind(FRUIT_KINDS, run.rng);
   const shape = makeFruitShape(kind, run.rng, FRUIT.segments);
   const rotation = nextRange(run.rng, -0.6, 0.6);
   const heading = nextRange(run.rng, 0, Math.PI * 2);
@@ -231,12 +244,12 @@ function roamingPosition(run: Run, radius: number, bounds: Bounds = ARCADE.bound
  * jump to a late round without playing the early ones.
  */
 export function spawnRound(run: Run): void {
-  run.tolerance = toleranceFor(run.mode, run.round);
+  run.tolerance = currentTolerance(run);
   const radius = fruitRadiusFor(run.round);
   run.fruits = [];
   run.bombs = [];
 
-  if (run.mode === 'classic') {
+  if (run.mode !== 'arcade') {
     run.fruits.push(makeFruit(run, radius, FRUIT.centerX, FRUIT.centerY, 0, 0));
   } else {
     const spec = arcadeSpec(run.round, run.rng);
@@ -348,6 +361,26 @@ export function stepRun(run: Run, input: RunInput): void {
   if (input.cut) handleCut(run, input.cut.a, input.cut.b);
 }
 
+/**
+ * Survival: a miss does not end the run. What it was over the tolerance by comes off the tolerance
+ * for good; if too little is left for the next fruit, the run is over.
+ */
+function loseMargin(run: Run, deviation: number): void {
+  const lost = (deviation - run.tolerance) * CONFIG.survival.penaltyFactor;
+  const before = run.penalty;
+  run.penalty += lost;
+  const remaining = toleranceFor('survival', run.round) - run.penalty;
+  run.events.push({ type: 'margin', lost, remaining: Math.max(0, remaining) });
+  if (remaining < CONFIG.survival.minTolerance) {
+    run.penaltyBeforeFail = before; // a retry takes this last miss back
+    fail(run, 'budget');
+    return; // the fruit stays, so a retry can bring it back
+  }
+  run.fruits = [];
+  run.bombs = [];
+  run.cooldown = FRUIT.classicCooldown;
+}
+
 function handleCut(run: Run, a: Vec, b: Vec): void {
   // A bomb on the line voids the cut and costs a strike.
   const hit = run.bombs.filter((bomb) => segmentHitsCircle(a, b, bomb, bomb.r));
@@ -394,7 +427,7 @@ function handleCut(run: Run, a: Vec, b: Vec): void {
     run.events.push({ type: 'cut', ok, a, b, pieces, deviation: worst, tolerance: run.tolerance, rating, points, combo: run.combo });
     run.fruits = [];
     run.bombs = [];
-    run.cooldown = run.mode === 'classic' ? FRUIT.classicCooldown : FRUIT.arcadeCooldown;
+    run.cooldown = run.mode === 'arcade' ? FRUIT.arcadeCooldown : FRUIT.classicCooldown;
     return;
   }
 
@@ -402,6 +435,10 @@ function handleCut(run: Run, a: Vec, b: Vec): void {
   run.combo = 0;
   if (run.mode === 'classic') {
     fail(run, 'tolerance');
+    return;
+  }
+  if (run.mode === 'survival') {
+    loseMargin(run, worst);
     return;
   }
   // Arcade: the fruit is lost; carry on unless that was the last strike.
@@ -432,7 +469,8 @@ export function restartRun(run: Run): boolean {
   } else if (run.snapshot) {
     run.fruits = run.snapshot.fruits.map((f) => ({ ...f }));
     run.bombs = run.snapshot.bombs.map((b) => ({ ...b }));
-    run.tolerance = toleranceFor(run.mode, run.round);
+    if (run.mode === 'survival') run.penalty = run.penaltyBeforeFail;
+    run.tolerance = currentTolerance(run);
     run.cooldown = 0;
   }
   run.events.push({ type: 'restarted', restarts: run.restarts });
@@ -459,6 +497,7 @@ export function debugRun(run: Run): Record<string, unknown> {
     tolerance: run.tolerance,
     timeLeft: run.timeLeft,
     strikes: run.strikes,
+    penalty: run.penalty,
     restarts: run.restarts,
     cooldown: run.cooldown,
     fruits: run.fruits.map((f) => ({ id: f.id, kind: f.kind, x: f.x, y: f.y, radius: f.radius, polygon: fruitPolygon(f) })),

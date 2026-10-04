@@ -1,5 +1,4 @@
 import { CONFIG, type Mode } from './config';
-import { FRUIT_KINDS, type FruitKind } from './fruit';
 
 // ---- difficulty curve -------------------------------------------------------------------
 
@@ -18,13 +17,6 @@ export function fruitRadiusFor(fruitsCut: number): number {
   const { startRadius, minRadius, fruitsToMinRadius } = CONFIG.fruit;
   const progress = Math.min(Math.max(fruitsCut, 0), fruitsToMinRadius) / fruitsToMinRadius;
   return startRadius + (minRadius - startRadius) * progress;
-}
-
-/** The kinds of fruit that may appear after `fruitsCut` cuts. */
-export function kindsFor(fruitsCut: number): readonly FruitKind[] {
-  let kinds: readonly string[] = CONFIG.kindsByProgress[0].kinds;
-  for (const step of CONFIG.kindsByProgress) if (fruitsCut >= step.from) kinds = step.kinds;
-  return kinds.filter((k): k is FruitKind => (FRUIT_KINDS as readonly string[]).includes(k));
 }
 
 // ---- rating and score --------------------------------------------------------------------

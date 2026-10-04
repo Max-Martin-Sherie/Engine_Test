@@ -36,6 +36,7 @@ export interface RunDump {
   tolerance: number;
   timeLeft: number;
   strikes: number;
+  penalty: number;
   restarts: number;
   fruits: FruitDump[];
   bombs: { id: number; x: number; y: number; r: number }[];
@@ -45,7 +46,7 @@ export interface ProfileDump {
   coins: number;
   owned: string[];
   equipped: string;
-  best: { classic: number; arcade: number };
+  best: { classic: number; arcade: number; survival: number };
   settings: { sound: boolean; haptics: boolean };
 }
 
@@ -58,7 +59,7 @@ export const profileDump = async (page: Page): Promise<ProfileDump> => (await sn
 export async function seedProfile(page: Page, profile: Partial<ProfileDump>): Promise<void> {
   await page.addInitScript((p) => {
     if (localStorage.getItem('fruitslice.profile') === null) {
-      localStorage.setItem('fruitslice.profile', JSON.stringify({ version: 1, coins: 0, owned: ['steel'], equipped: 'steel', best: { classic: 0, arcade: 0 }, settings: { sound: true, haptics: true }, ...p }));
+      localStorage.setItem('fruitslice.profile', JSON.stringify({ version: 1, coins: 0, owned: ['steel'], equipped: 'steel', best: { classic: 0, arcade: 0, survival: 0 }, settings: { sound: true, haptics: true }, ...p }));
     }
   }, profile);
 }
@@ -82,8 +83,9 @@ export async function dragWorld(page: Page, a: Vec, b: Vec): Promise<void> {
 
 /**
  * A drag across a fruit on screen that splits it with the given deviation from 50/50
- * (percentage points; 0 = a perfect cut), computed with the game's own geometry. The angle is
- * nudged until both ends of the drag are on screen, and it returns once the game has judged the cut.
+ * (percentage points; 0 = a perfect cut), computed with the game's own geometry. The angle and the
+ * side the line is shifted to are searched until both ends of the drag are on screen, and it returns
+ * once the game has judged the cut.
  */
 export async function cutFruit(page: Page, deviation = 0, angle = 0.3, fruitIndex = 0): Promise<void> {
   const run = await runDump(page);
@@ -91,21 +93,15 @@ export async function cutFruit(page: Page, deviation = 0, angle = 0.3, fruitInde
   if (!fruit) throw new Error('no fruit on screen to cut');
 
   const onScreen = (p: Vec): boolean => p.x >= 6 && p.x <= 354 && p.y >= 6 && p.y <= 634;
-  let chosen = angle;
-  let base = bisectingLine(fruit.polygon, chosen, 28, 1);
-  for (let i = 1; i < 10 && !(onScreen(base.a) && onScreen(base.b)); i++) {
-    chosen = angle + i * 0.35;
-    base = bisectingLine(fruit.polygon, chosen, 28, 1);
-  }
-
-  let { a, b } = base;
-  if (deviation > 0) {
-    const nx = -Math.sin(chosen);
-    const ny = Math.cos(chosen);
+  const attempt = (theta: number, side: 1 | -1): { a: Vec; b: Vec } => {
+    const base = bisectingLine(fruit.polygon, theta, 28, 1);
+    if (deviation <= 0) return base;
+    const nx = -Math.sin(theta) * side;
+    const ny = Math.cos(theta) * side;
     const shifted = (t: number) => ({ a: { x: base.a.x + nx * t, y: base.a.y + ny * t }, b: { x: base.b.x + nx * t, y: base.b.y + ny * t } });
     const dev = (t: number): number => {
-      const s = shifted(t);
-      const areas = splitAreas(fruit.polygon, s.a, s.b);
+      const l = shifted(t);
+      const areas = splitAreas(fruit.polygon, l.a, l.b);
       return Math.abs(areas.left / (areas.left + areas.right) - 0.5) * 100;
     };
     let lo = 0;
@@ -115,8 +111,20 @@ export async function cutFruit(page: Page, deviation = 0, angle = 0.3, fruitInde
       if (dev(mid) < deviation) lo = mid;
       else hi = mid;
     }
-    ({ a, b } = shifted((lo + hi) / 2));
+    return shifted((lo + hi) / 2);
+  };
+
+  let line = attempt(angle, 1);
+  search: for (let i = 0; i < 24; i++) {
+    for (const side of [1, -1] as const) {
+      const candidate = attempt(angle + i * 0.27, side);
+      if (onScreen(candidate.a) && onScreen(candidate.b)) {
+        line = candidate;
+        break search;
+      }
+    }
   }
+  const { a, b } = line;
   await dragWorld(page, a, b);
 
   // The game judges a drag on its next step: wait until it has (the fruit is gone or the run moved on).

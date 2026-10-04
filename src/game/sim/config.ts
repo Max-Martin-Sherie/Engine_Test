@@ -3,6 +3,9 @@ import { WORLD } from '../../engine/core/config';
 
 const TICKS_PER_SECOND = 60;
 
+export type Mode = 'classic' | 'arcade' | 'survival';
+export const MODES: readonly Mode[] = ['classic', 'arcade', 'survival'];
+
 export const CONFIG = {
   world: WORLD,
   ticksPerSecond: TICKS_PER_SECOND,
@@ -20,7 +23,19 @@ export const CONFIG = {
    */
   tolerance: {
     classic: { start: 12, floor: 1.5, fruitsToFloor: 30 },
-    arcade: { start: 14, floor: 3, fruitsToFloor: 40 },
+    survival: { start: 12, floor: 1.5, fruitsToFloor: 30 },
+    arcade: { start: 16, floor: 4, fruitsToFloor: 60 },
+  },
+
+  /**
+   * Survival: a cut that is off by more than the tolerance does not end the run. The amount it was
+   * off by (beyond the allowed tolerance) is taken off the tolerance for good, and the run ends
+   * when what is left falls under `minTolerance`.
+   */
+  survival: {
+    minTolerance: 0.6,
+    /** 1 = lose exactly the amount you were over by. */
+    penaltyFactor: 1,
   },
 
   /** Deviation (percentage points) at or under which a cut is rated Perfect / Great. */
@@ -42,14 +57,6 @@ export const CONFIG = {
     arcadeCooldown: 0.4,
   },
 
-  /** Which fruit can appear after this many have been cut: easy round ones first, awkward ones later. */
-  kindsByProgress: [
-    { from: 0, kinds: ['orange', 'apple', 'watermelon'] },
-    { from: 6, kinds: ['orange', 'apple', 'watermelon', 'lemon'] },
-    { from: 12, kinds: ['apple', 'watermelon', 'lemon', 'pear'] },
-    { from: 20, kinds: ['lemon', 'pear', 'banana', 'watermelon'] },
-  ],
-
   scoring: {
     /** Each consecutive Perfect adds this to the multiplier, up to the cap. */
     comboStep: 0.1,
@@ -57,27 +64,34 @@ export const CONFIG = {
   },
 
   arcade: {
-    startTime: 45,
-    maxTime: 90,
+    startTime: 60,
+    maxTime: 99,
     /** Seconds added by a cut inside tolerance (+ the bonus when it is Perfect). */
-    timeBonus: 3,
+    timeBonus: 4,
     perfectTimeBonus: 1,
     /** Seconds lost by a cut outside tolerance or a bomb hit. */
-    penaltyTime: 3,
+    penaltyTime: 2,
     maxStrikes: 3,
     /** After a "try again": time given back, and the strikes you keep. */
-    continueTime: 15,
+    continueTime: 20,
     continueStrikes: 1,
-    /** Chaos ramps in after this many fruit. */
-    driftFrom: 3,
-    spinFrom: 6,
-    bombsFrom: 8,
-    twinFrom: 10,
-    twinChance: 0.35,
+    /** Chaos ramps in slowly, after this many fruit. */
+    driftFrom: 6,
+    spinFrom: 12,
+    bombsFrom: 16,
+    twinFrom: 22,
+    twinChance: 0.25,
     /** Two fruit at once are harder to bisect with one line, so they get a looser tolerance. */
     twinToleranceFactor: 1.5,
-    maxDrift: 85,
-    maxSpin: 1.8,
+    /** Speeds grow by this much per round once their chaos has started, up to the maxima. */
+    driftBase: 12,
+    driftPerRound: 3,
+    maxDrift: 55,
+    spinBase: 0.35,
+    spinPerRound: 0.06,
+    maxSpin: 1.0,
+    /** The second bomb joins at this round. */
+    secondBombFrom: 28,
     bombRadius: 22,
     /** Where moving fruit may roam. */
     bounds: { left: 20, right: 340, top: 190, bottom: 520 },
@@ -100,5 +114,3 @@ export const CONFIG = {
   startCoins: 0,
   defaultSkin: 'steel',
 } as const;
-
-export type Mode = 'classic' | 'arcade';

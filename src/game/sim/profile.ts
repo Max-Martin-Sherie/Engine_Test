@@ -23,7 +23,7 @@ export function defaultProfile(): Profile {
     coins: CONFIG.startCoins,
     owned: [CONFIG.defaultSkin],
     equipped: CONFIG.defaultSkin,
-    best: { classic: 0, arcade: 0 },
+    best: { classic: 0, arcade: 0, survival: 0 },
     settings: { sound: true, haptics: true },
   };
 }
@@ -59,7 +59,7 @@ export function parseProfile(raw: string | null): Profile {
     coins: count(data['coins']),
     owned: ownedUnique,
     equipped,
-    best: { classic: count(best['classic']), arcade: count(best['arcade']) },
+    best: { classic: count(best['classic']), arcade: count(best['arcade']), survival: count(best['survival']) },
     settings: {
       sound: typeof settings['sound'] === 'boolean' ? settings['sound'] : base.settings.sound,
       haptics: typeof settings['haptics'] === 'boolean' ? settings['haptics'] : base.settings.haptics,

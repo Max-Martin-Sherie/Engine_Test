@@ -41,7 +41,7 @@ describe('profile', () => {
   it('a new player owns and wears the default skin, with an empty wallet', () => {
     const p = defaultProfile();
     expect(p).toMatchObject({ coins: CONFIG.startCoins, owned: [CONFIG.defaultSkin], equipped: CONFIG.defaultSkin });
-    expect(p.best).toEqual({ classic: 0, arcade: 0 });
+    expect(p.best).toEqual({ classic: 0, arcade: 0, survival: 0 });
     expect(p.settings).toEqual({ sound: true, haptics: true });
   });
 
@@ -72,7 +72,7 @@ describe('profile', () => {
     expect(p.coins).toBe(0);
     expect(p.owned).toEqual([CONFIG.defaultSkin, 'ember']);
     expect(p.equipped).toBe(CONFIG.defaultSkin);
-    expect(p.best).toEqual({ classic: 0, arcade: 880 });
+    expect(p.best).toEqual({ classic: 0, arcade: 880, survival: 0 });
     expect(p.settings).toEqual({ sound: true, haptics: false });
     expect(parseProfile('{"coins": 1e999}').coins).toBe(0); // Infinity is not a wallet
     expect(parseProfile('{"coins": 12.7}').coins).toBe(12);
@@ -126,10 +126,11 @@ describe('profile', () => {
     const p = defaultProfile();
     const first = recordBest(p, 'classic', 500);
     expect(first).toMatchObject({ isNewBest: true });
-    expect(first.profile.best).toEqual({ classic: 500, arcade: 0 });
+    expect(first.profile.best).toEqual({ classic: 500, arcade: 0, survival: 0 });
     expect(recordBest(first.profile, 'classic', 500).isNewBest).toBe(false);
     expect(recordBest(first.profile, 'classic', 100).profile).toBe(first.profile);
-    expect(recordBest(first.profile, 'arcade', 50).profile.best).toEqual({ classic: 500, arcade: 50 });
+    expect(recordBest(first.profile, 'arcade', 50).profile.best).toEqual({ classic: 500, arcade: 50, survival: 0 });
+    expect(recordBest(first.profile, 'survival', 70).profile.best).toEqual({ classic: 500, arcade: 0, survival: 70 });
   });
 
   it('settings toggle independently', () => {

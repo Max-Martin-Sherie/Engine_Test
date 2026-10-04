@@ -15,6 +15,7 @@ import { createSfx } from './sfx';
 import {
   BUNDLED_SKINS,
   CONFIG,
+  FRUIT_KINDS,
   bladeOutline,
   buySkin,
   comboMultiplier,
@@ -35,6 +36,7 @@ import {
   shouldShowInterstitial,
   spend,
   stepRun,
+  toleranceFor,
   type Mode,
   type Profile,
   type Run,
@@ -84,6 +86,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
   let watchedRewardedThisRun = false;
   let lastInterstitialAt: number | null = null;
   let result: ResultInfo | null = null;
+  let lastSplit = '';
 
   const skinById = (id: string): Skin => catalog.find((s) => s.id === id) ?? catalog.find((s) => s.id === CONFIG.defaultSkin) ?? BUNDLED_SKINS[0]!;
   const save = (): void => void safeSetItem(PROFILE_KEY, serializeProfile(profile));
@@ -151,7 +154,12 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
   }
 
   function refreshMenu(): void {
-    ui.setMenu({ coins: profile.coins, bestClassic: profile.best.classic, bestArcade: profile.best.arcade });
+    ui.setMenu({
+      coins: profile.coins,
+      bestClassic: profile.best.classic,
+      bestArcade: profile.best.arcade,
+      bestSurvival: profile.best.survival,
+    });
   }
 
   function refreshShop(): void {
@@ -410,6 +418,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
         ui.setMarker(worst.fraction * 100);
         const first = event.pieces[0]!;
         const split = `${pct(worst.fraction)} | ${pct(1 - worst.fraction)}`;
+        lastSplit = split;
         const labels = { perfect: 'Perfect!', great: 'Great!', good: 'Nice', miss: 'Uneven' } as const;
         // Above the fruit, so the two halves stay in view.
         ui.flash({ x: first.x, y: Math.min(560, Math.max(180, first.y - first.radius - 34)), text: labels[event.rating], sub: split, tone: toneFor(event) });
@@ -418,6 +427,10 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
         if (!event.ok) lastFail = { reason: 'tolerance', deviation: event.deviation, tolerance: event.tolerance };
         break;
       }
+      case 'margin':
+        // Survival: the miss does not end the run, it eats into the tolerance for good.
+        ui.flash({ x: 180, y: 250, text: `Margin −${event.lost.toFixed(1)}`, sub: `${lastSplit} · ${event.remaining.toFixed(1)} left`, tone: 'miss' });
+        break;
       case 'bomb':
         scene.showBomb(event.x, event.y, visualTime);
         ui.flash({ x: event.x, y: event.y, text: 'Bomb!', tone: 'bomb' });
@@ -451,6 +464,8 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
       timeLeft: r.timeLeft,
       strikes: r.strikes,
       maxStrikes: CONFIG.arcade.maxStrikes,
+      // Never show more lost than there was to lose (the fatal miss can overshoot).
+      penalty: Math.max(0, Math.min(r.penalty, toleranceFor(r.mode, r.round))),
     };
   }
 
@@ -458,6 +473,13 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
   applyProfile();
   refreshMenu();
   ui.show('menu');
+
+  // Dev tool (?gallery=whole or ?gallery=cut): every fruit laid out, to review the art.
+  const gallery = import.meta.env.DEV ? params.get('gallery') : null;
+  if (gallery === 'whole' || gallery === 'cut') {
+    scene.showGallery(FRUIT_KINDS, gallery);
+    ui.show('none');
+  }
 
   // Online skins load in the background; the bundled ones are already usable.
   void loadCatalog({
@@ -499,7 +521,8 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, input,
       pendingCut = null;
       stepRun(run, { cut });
       drain(run);
-      ui.setHint(run.round < 2 && run.phase === 'playing' ? 'Drag across the whole fruit' : null);
+      const hint = run.mode === 'survival' ? 'Drag across · misses cost margin' : 'Drag across the whole fruit';
+      ui.setHint(run.round < 2 && run.phase === 'playing' ? hint : null);
     },
 
     render(alpha) {

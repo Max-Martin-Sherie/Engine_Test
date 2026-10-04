@@ -10,12 +10,13 @@ import {
   bladeOutline,
   makeFruitShape,
   type CutPiece,
+  type FruitKind,
   type FruitShape,
   type Run,
   type Skin,
   type Vec,
 } from '../sim';
-import { drawFruit } from './fruitArt';
+import { drawFruit, type FruitView } from './fruitArt';
 import { COLORS, FRUIT_COLORS } from './palette';
 
 const { width: W, height: H } = CONFIG.world;
@@ -39,6 +40,8 @@ export interface Scene {
   showCancel(a: Vec, b: Vec, now: number): void;
   showBomb(x: number, y: number, now: number): void;
   clearEffects(): void;
+  /** Dev tool: lay out every kind of fruit, whole or cut, to review the art. */
+  showGallery(kinds: readonly FruitKind[], view: FruitView): void;
 }
 
 const hex = (color: string): number => Number.parseInt(color.slice(1), 16);
@@ -106,7 +109,9 @@ export function createScene(field: Container): Scene {
   const effectLayer = new Container();
   const particleGraphics = new Graphics();
   const dragGraphics = new Graphics();
-  field.addChild(backdrop, attract, bombLayer, fruitLayer, effectLayer, particleGraphics, dragGraphics);
+  const knifeLayer = new Container();
+  const galleryLayer = new Container();
+  field.addChild(backdrop, attract, bombLayer, fruitLayer, effectLayer, particleGraphics, dragGraphics, knifeLayer, galleryLayer);
 
   // Attract mode: three big, faint fruit drifting behind the menu.
   const attractRng = createRng(7);
@@ -168,24 +173,48 @@ export function createScene(field: Container): Scene {
     return root;
   }
 
-  function drawKnife(g: Graphics, tip: Vec, angle: number, scale: number): void {
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
-    /** Knife-space (blade box, tip at x = 100) to world. */
-    const at = (x: number, y: number): [number, number] => {
-      const lx = (x - 100) * scale;
-      const ly = (y - 14) * scale;
-      return [tip.x + lx * cos - ly * sin, tip.y + lx * sin + ly * cos];
-    };
+  // The knife. Its origin is the middle of its cutting edge, so when it is placed at the end of the
+  // drag only that middle point sits on the line; the rest of the blade is tilted away from it.
+  const KNIFE_SCALE = 0.55;
+  const BASE_TILT = 0.85;
+  const knife = new Container();
+  const knifeBody = new Graphics();
+  knife.addChild(knifeBody);
+  knife.visible = false;
+  knifeLayer.addChild(knife);
+  const knifePos = { x: 0, y: 0 };
+  let knifeActive = false;
+  let knifeStart = 0;
+  let knifeSpeed = 0;
+  let lastDir: Vec = { x: 1, y: 0 };
+  const ghosts: { root: Container; start: number; dir: Vec; from: Vec; angle: number }[] = [];
+
+  /** Draws the knife of the current skin into `g`, edge-middle at (0, 0), tip pointing along +x. */
+  function paintKnife(g: Graphics): void {
+    g.clear();
+    const at = (x: number, y: number): [number, number] => [(x - 50) * KNIFE_SCALE, (y - 24) * KNIFE_SCALE];
     const blade = bladeOutline(skin.blade.shape).flatMap(([x, y]) => at(x, y));
-    const handle = [at(-38, 6), at(0, 6), at(0, 22), at(-38, 22)].flat();
-    const band = [at(-10, 6), at(-3, 6), at(-3, 22), at(-10, 22)].flat();
-    g.poly(handle).fill(hex(skin.handle.color));
-    g.poly(band).fill(hex(skin.handle.accent));
+    g.poly(blade.map((v, i) => v + (i % 2 === 0 ? 2.5 : 3.5))).fill({ color: 0x000000, alpha: 0.28 }); // soft shadow
+    g.poly([at(-38, 6), at(0, 6), at(0, 22), at(-38, 22)].flat()).fill(hex(skin.handle.color));
+    g.poly([at(-10, 6), at(-3, 6), at(-3, 22), at(-10, 22)].flat()).fill(hex(skin.handle.accent));
     g.poly(blade).fill(hex(skin.blade.color)).stroke({ width: 1.2, color: hex(skin.blade.edge), join: 'round' });
     const [ex0, ey0] = at(4, 23);
-    const [ex1, ey1] = at(88, 23);
-    g.moveTo(ex0, ey0).lineTo(ex1, ey1).stroke({ width: 1.6, color: hex(skin.blade.edge), alpha: 0.9 });
+    const [ex1, ey1] = at(90, 23);
+    g.moveTo(ex0, ey0).lineTo(ex1, ey1).stroke({ width: 1.6, color: hex(skin.blade.edge), alpha: 0.95 });
+  }
+  paintKnife(knifeBody);
+
+  /** The knife swishes on through where the cut was, spinning a little, and fades. */
+  function releaseKnife(now: number): void {
+    const root = new Container();
+    const body = new Graphics();
+    paintKnife(body);
+    root.addChild(body);
+    root.position.set(knife.x, knife.y);
+    root.rotation = knife.rotation;
+    root.scale.set(knife.scale.x);
+    knifeLayer.addChild(root);
+    ghosts.push({ root, start: now, dir: lastDir, from: { x: knife.x, y: knife.y }, angle: knife.rotation });
   }
 
   function drawSlashLine(g: Graphics, a: Vec, b: Vec, color: number, glow: number, width: number, alpha: number): void {
@@ -228,6 +257,7 @@ export function createScene(field: Container): Scene {
   return {
     setSkin(next) {
       skin = next;
+      paintKnife(knifeBody);
     },
 
     setDrag(next) {
@@ -245,7 +275,7 @@ export function createScene(field: Container): Scene {
         for (const side of [1, -1] as const) {
           const root = new Container();
           const g = new Graphics();
-          drawFruit(g, piece.shape, piece);
+          drawFruit(g, piece.shape, piece, 'cut');
           // A half-plane on one side of the cut line hides the other half.
           const mask = new Graphics()
             .poly([
@@ -292,6 +322,22 @@ export function createScene(field: Container): Scene {
       for (const s of slashes.splice(0)) s.g.destroy();
       for (const r of rings.splice(0)) r.g.destroy();
       particles.length = 0;
+      for (const gh of ghosts.splice(0)) gh.root.destroy({ children: true });
+    },
+
+    showGallery(kinds, view) {
+      for (const child of galleryLayer.removeChildren()) child.destroy({ children: true });
+      attract.visible = false;
+      const rng = createRng(11);
+      const cols = 4;
+      const radius = 38;
+      kinds.forEach((kind, i) => {
+        const g = new Graphics();
+        const x = 48 + (i % cols) * 88;
+        const y = 84 + Math.floor(i / cols) * 112;
+        drawFruit(g, makeFruitShape(kind, rng, CONFIG.fruit.segments), { x, y, rotation: 0, radius }, view);
+        galleryLayer.addChild(g);
+      });
     },
 
     update({ run, alpha, now }) {
@@ -299,7 +345,7 @@ export function createScene(field: Container): Scene {
       lastNow = now;
 
       // Menu backdrop.
-      attract.visible = run === null;
+      attract.visible = run === null && galleryLayer.children.length === 0;
       if (run === null) {
         for (const item of attractItems) {
           item.holder.position.set(item.x + Math.sin(now * 0.5 + item.index * 2) * 6, item.y + Math.cos(now * 0.4 + item.index) * 9);
@@ -398,13 +444,53 @@ export function createScene(field: Container): Scene {
         particleGraphics.circle(p.x, p.y, p.size * (1 - age / p.life * 0.5)).fill({ color: p.color, alpha: 1 - age / p.life });
       }
 
-      // The drag in progress: a glowing line and the knife at the fingertip.
+      // The drag in progress: a glowing line, and the knife riding its end.
       dragGraphics.clear();
+      const live = drag !== null && Math.hypot(drag.b.x - drag.a.x, drag.b.y - drag.a.y) > 6;
       if (drag) {
         drawSlashLine(dragGraphics, drag.a, drag.b, hex(skin.trail.color), hex(skin.trail.glow), skin.trail.width, 1);
         dragGraphics.circle(drag.a.x, drag.a.y, 4).fill({ color: hex(skin.trail.color), alpha: 0.9 });
+      }
+      if (live && drag) {
+        if (!knifeActive) {
+          knifeActive = true;
+          knifeStart = now;
+          knifeSpeed = 0;
+          knifePos.x = drag.b.x;
+          knifePos.y = drag.b.y;
+        }
+        // The knife trails the fingertip a little, which gives it weight.
+        const follow = 1 - Math.exp(-dt * 26);
+        const px = knifePos.x;
+        const py = knifePos.y;
+        knifePos.x += (drag.b.x - knifePos.x) * follow;
+        knifePos.y += (drag.b.y - knifePos.y) * follow;
+        const speed = dt > 0 ? Math.hypot(knifePos.x - px, knifePos.y - py) / dt : 0;
+        knifeSpeed += (speed - knifeSpeed) * 0.25;
         const angle = Math.atan2(drag.b.y - drag.a.y, drag.b.x - drag.a.x);
-        if (Math.hypot(drag.b.x - drag.a.x, drag.b.y - drag.a.y) > 6) drawKnife(dragGraphics, drag.b, angle, 0.5);
+        lastDir = { x: Math.cos(angle), y: Math.sin(angle) };
+        // It sways as it goes, more the faster you move.
+        const sway = Math.sin(now * 8) * (0.07 + 0.2 * Math.min(1, knifeSpeed / 500));
+        knife.position.set(knifePos.x, knifePos.y);
+        knife.rotation = angle + BASE_TILT + sway;
+        knife.scale.set(easeOutBack(clamp01((now - knifeStart) / 0.22)));
+        knife.visible = true;
+      } else if (knifeActive) {
+        knifeActive = false;
+        knife.visible = false;
+        releaseKnife(now);
+      }
+      for (let i = ghosts.length - 1; i >= 0; i--) {
+        const gh = ghosts[i]!;
+        const t = clamp01((now - gh.start) / 0.3);
+        const travel = 80 * easeOutCubic(t);
+        gh.root.position.set(gh.from.x + gh.dir.x * travel, gh.from.y + gh.dir.y * travel);
+        gh.root.rotation = gh.angle + 0.5 * t;
+        gh.root.alpha = 1 - t;
+        if (t >= 1) {
+          gh.root.destroy({ children: true });
+          ghosts.splice(i, 1);
+        }
       }
     },
   };

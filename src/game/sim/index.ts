@@ -1,4 +1,4 @@
-export { CONFIG, type Mode } from './config';
+export { CONFIG, MODES, type Mode } from './config';
 export { evaluateCut, segmentHitsCircle, type CancelReason, type CutEvaluation } from './cut';
 export { FRUIT_KINDS, makeFruitShape, type FruitKind, type FruitShape } from './fruit';
 export {
@@ -31,7 +31,6 @@ export {
   accuracyFor,
   comboMultiplier,
   fruitRadiusFor,
-  kindsFor,
   nextCombo,
   pointsFor,
   ratingFor,
@@ -45,6 +44,7 @@ export {
 } from './rules';
 export {
   createRun,
+  currentTolerance,
   debugRun,
   drainEvents,
   endRun,

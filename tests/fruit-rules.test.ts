@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { createRng } from '../src/engine/core/rng';
 import { CONFIG } from '../src/game/sim/config';
 import { FRUIT_KINDS, makeFruitShape, pickKind } from '../src/game/sim/fruit';
+import { createRun } from '../src/game/sim/run';
 import { area, boundingRadius, centroid, containsPoint, type Vec } from '../src/game/sim/geometry';
 import {
   accuracyFor,
   comboMultiplier,
   fruitRadiusFor,
-  kindsFor,
   nextCombo,
   pointsFor,
   ratingFor,
@@ -88,6 +88,54 @@ describe('fruit shapes', () => {
     const orange = makeFruitShape('orange', createRng(2), 64).outline;
     expect(area(banana) / convexHullArea(banana)).toBeLessThan(0.8);
     expect(area(orange) / convexHullArea(orange)).toBeGreaterThan(0.98);
+    const star = makeFruitShape('starfruit', createRng(2), 64).outline;
+    expect(area(star) / convexHullArea(star)).toBeLessThan(0.85);
+  });
+
+  it('has a big roster, with exotic fruit', () => {
+    expect(FRUIT_KINDS.length).toBeGreaterThanOrEqual(18);
+    expect(new Set(FRUIT_KINDS).size).toBe(FRUIT_KINDS.length);
+    for (const exotic of ['dragonfruit', 'kiwi', 'pineapple', 'mango', 'starfruit', 'pomegranate', 'passionfruit', 'lychee', 'papaya', 'coconut', 'avocado', 'strawberry', 'persimmon']) {
+      expect(FRUIT_KINDS).toContain(exotic);
+    }
+  });
+
+  it('any fruit can come up from the very first round: difficulty never decides the kind', () => {
+    const seen = new Set<string>();
+    for (let seed = 1; seed <= 600; seed++) seen.add(createRun('classic', seed).fruits[0]!.kind);
+    expect([...seen].sort()).toEqual([...FRUIT_KINDS].sort());
+  });
+
+  it('shapes look like their fruit: stretched, tapered, starry', () => {
+    const outline = (kind: Parameters<typeof makeFruitShape>[0], seed = 1) => makeFruitShape(kind, createRng(seed), 64).outline;
+    const extent = (pts: Vec[]) => ({
+      w: Math.max(...pts.map((p) => p.x)) - Math.min(...pts.map((p) => p.x)),
+      h: Math.max(...pts.map((p) => p.y)) - Math.min(...pts.map((p) => p.y)),
+    });
+    expect(extent(outline('pineapple')).h).toBeGreaterThan(extent(outline('pineapple')).w * 1.2);
+    expect(extent(outline('papaya')).h).toBeGreaterThan(extent(outline('papaya')).w * 1.3);
+    expect(extent(outline('watermelon')).w).toBeGreaterThan(extent(outline('watermelon')).h * 1.2);
+
+    /** Width of the shape in a horizontal band near the top versus near the bottom. */
+    const widthAt = (pts: Vec[], from: number, to: number): number => {
+      const ys = pts.map((p) => p.y);
+      const lo = Math.min(...ys);
+      const span = Math.max(...ys) - lo;
+      const band = pts.filter((p) => p.y >= lo + span * from && p.y <= lo + span * to);
+      return Math.max(...band.map((p) => p.x)) - Math.min(...band.map((p) => p.x));
+    };
+    for (const narrowTop of ['pear', 'avocado', 'papaya'] as const) {
+      const pts = outline(narrowTop);
+      expect(widthAt(pts, 0.05, 0.25), narrowTop).toBeLessThan(widthAt(pts, 0.75, 0.95));
+    }
+    const berry = outline('strawberry');
+    expect(widthAt(berry, 0.05, 0.25)).toBeGreaterThan(widthAt(berry, 0.75, 0.95));
+
+    // A star fruit has five points: five local peaks in distance from the middle.
+    const star = outline('starfruit', 3);
+    const dist = star.map((p) => Math.hypot(p.x, p.y));
+    const peaks = dist.filter((d, i) => d > dist[(i + dist.length - 1) % dist.length]! && d >= dist[(i + 1) % dist.length]! && d > 0.85);
+    expect(peaks).toHaveLength(5);
   });
 
   it('pickKind only returns what it is offered', () => {
@@ -100,7 +148,7 @@ describe('fruit shapes', () => {
 
 describe('difficulty curve', () => {
   it('tolerance starts wide, shrinks every fruit, and stops at the floor', () => {
-    for (const mode of ['classic', 'arcade'] as const) {
+    for (const mode of ['classic', 'arcade', 'survival'] as const) {
       const { start, floor, fruitsToFloor } = CONFIG.tolerance[mode];
       expect(toleranceFor(mode, 0)).toBeCloseTo(start, 9);
       let previous = Infinity;
@@ -128,14 +176,6 @@ describe('difficulty curve', () => {
     expect(fruitRadiusFor(CONFIG.fruit.fruitsToMinRadius)).toBe(CONFIG.fruit.minRadius);
     expect(fruitRadiusFor(1000)).toBe(CONFIG.fruit.minRadius);
     expect(fruitRadiusFor(10)).toBeLessThan(fruitRadiusFor(5));
-  });
-
-  it('awkward fruit only appear later', () => {
-    expect(kindsFor(0)).not.toContain('banana');
-    expect(kindsFor(0)).not.toContain('pear');
-    expect(kindsFor(12)).toContain('pear');
-    expect(kindsFor(20)).toContain('banana');
-    expect(kindsFor(1000).length).toBeGreaterThan(0);
   });
 });
 
