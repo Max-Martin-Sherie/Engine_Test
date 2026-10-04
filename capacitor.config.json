@@ -1,0 +1,6 @@
+{
+  "appId": "com.example.rockfall",
+  "appName": "Rockfall",
+  "webDir": "dist",
+  "backgroundColor": "#0c2a33"
+}

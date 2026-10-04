@@ -1,0 +1,24 @@
+# dependencies and build output
+node_modules/
+dist/
+
+# env files (copy .env.production.example to .env.production for release builds)
+.env
+.env.*
+!.env.production.example
+
+# test output
+test-results/
+playwright-report/
+e2e/screenshots/*
+!e2e/screenshots/.gitkeep
+
+# android/ and ios/ are committed; Capacitor generates their own .gitignore files
+# that exclude synced web assets, build output and local config.
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
