@@ -78,6 +78,7 @@ src/engine/
            input.ts      pointer position + drag gestures
            layout.ts     fits the 360x640 world into any window (letterbox)
            rng.ts        seeded random numbers (mulberry32)
+           replay.ts     encodeInts / decodeInts: a list of integers <-> short URL-safe text (share a run as a link)
            storage.ts    safe localStorage helpers
            config.ts     WORLD = 360 x 640
   services/ ads.ts, fakeAds.ts, admobAds.ts, analytics.ts, haptics.ts, audio.ts
@@ -187,6 +188,7 @@ All services are safe: they never throw into your code.
 | `audio.tone({...})`, `audio.noise({...})`, `audio.setEnabled(bool)` (`unlock()` is called by the engine on the first touch) | Synthesised sound: tones (beeps, sweeps) and noise (swishes, bursts). A game builds its named effects on top (Fruit Slice: `src/game/sfx.ts`, read it for examples). |
 | `analytics.track('event', {…})` | Logs events (console in dev). Swap the implementation in `services/analytics.ts` for a real backend later. |
 | `safeGetItem/safeSetItem/safeGetNumber/safeSetNumber` (`engine/core/storage`) | localStorage that never throws (private mode, quota). Prefix keys with your game id. |
+| `encodeInts(list)` / `decodeInts(text)` (`engine/core/replay`) | Turns a recorded input list into short URL-safe text and back (decode returns `null` for bad text). A deterministic game stores `seed + inputs`, puts them in a link, and anyone replays the exact run. Keep the sim free of `Math.sin/cos/pow` if replays must match across browsers. |
 | `params.get('seed')` | URL query flags. Engine itself reads `?ads=no-fill` / `?ads=skip` (fake ad failures). |
 | `resetClock()` | Call after un-pausing so the loop does not see a big time gap. |
 
