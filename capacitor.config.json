@@ -1,6 +1,6 @@
 {
-  "appId": "com.example.game",
-  "appName": "Game Engine",
+  "appId": "com.maxmartin.echoloop",
+  "appName": "Echo Loop",
   "webDir": "dist",
-  "backgroundColor": "#0c2a33"
+  "backgroundColor": "#070b1a"
 }
