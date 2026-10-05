@@ -25,7 +25,8 @@ Needs **Node >= 22.12**.
 ```
 src/main.ts            boot(createGame): the only file that sees both sides
 src/engine/            the engine - never imports from src/game
-  core/                loop, pointer input, seeded RNG, safe storage, world size + layout math
+  core/                loop, pointer input, seeded RNG, safe storage, world size + layout math,
+                       replay (compact text encoding of integer lists, for deterministic run links)
   services/            ads (rewarded + interstitial; fake in browsers, AdMob on devices), analytics,
                        haptics (@capacitor/haptics), synthesised audio (Web Audio)
   view/                PixiJS bootstrap: letterboxed canvas + an empty, clipped `field` layer

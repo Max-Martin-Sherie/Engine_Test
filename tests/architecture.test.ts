@@ -164,7 +164,7 @@ describe('architecture', () => {
       [/\bconsole\b/, 'console'],
       [/\bHTML\w*Element\b/, 'DOM types'],
     ];
-    const pure = ['engine/core/rng.ts', 'engine/core/layout.ts', 'engine/core/config.ts'];
+    const pure = ['engine/core/rng.ts', 'engine/core/layout.ts', 'engine/core/config.ts', 'engine/core/replay.ts'];
     const violations: string[] = [];
     for (const file of tsFiles.filter((f) => f.layer === 'game/sim' || pure.includes(f.path))) {
       for (const [re, name] of forbidden) if (re.test(file.code)) violations.push(`${file.path} uses ${name}`);
