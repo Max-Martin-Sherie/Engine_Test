@@ -130,11 +130,23 @@ export function buildTerrain(map: GameMap, ground: THREE.Material, rockMaterial:
   const rocks = new THREE.InstancedMesh(geometry, rockMaterial, Math.max(1, cells.length));
   const matrix = new THREE.Matrix4();
   const color = new THREE.Color();
+  const up = new THREE.Vector3(0, 1, 0);
+  const turn = new THREE.Quaternion();
+  const place = new THREE.Vector3();
+  const size3 = new THREE.Vector3();
   cells.forEach((c, i) => {
-    matrix.compose(new THREE.Vector3(c.x + 0.5, c.h / 2, c.y + 0.5), new THREE.Quaternion(), new THREE.Vector3(1.02, c.h, 1.02));
+    // Each block is turned a little and made a little wider than its cell, so the rock field does not look like a grid.
+    const edge = c.x < 2 || c.y < 2 || c.x >= size - 2 || c.y >= size - 2;
+    turn.setFromAxisAngle(up, edge ? 0 : (hash(c.x, c.y, 7) - 0.5) * 0.7);
+    const wide = edge ? 1.02 : 1.14 + hash(c.x, c.y, 8) * 0.14;
+    place.set(c.x + 0.5, c.h / 2, c.y + 0.5);
+    size3.set(wide, c.h, wide);
+    matrix.compose(place, turn, size3);
     rocks.setMatrixAt(i, matrix);
+    // A tone for the cell, and a slower one over a few cells so the rock has veins and patches.
     const base = ROCK_COLORS[Math.floor(hash(c.x, c.y, 5) * ROCK_COLORS.length)] ?? ROCK_COLORS[0]!;
-    color.setHex(base).multiplyScalar(0.8 + (c.h / 4.4) * 0.45);
+    const patch = 0.88 + hash(Math.floor(c.x / 3), Math.floor(c.y / 3), 6) * 0.3;
+    color.setHex(base).multiplyScalar((0.8 + (c.h / 4.4) * 0.45) * patch);
     rocks.setColorAt(i, color);
   });
   rocks.count = cells.length;

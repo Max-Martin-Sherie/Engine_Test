@@ -332,6 +332,12 @@ export function createUi(root: HTMLElement, cb: UiCallbacks, world: { width: num
   result.append(resultPanel);
 
   stage.append(hud, menu, pause, settings, help, result);
+
+  // A phone held upright: ask for the other way (shown by CSS only in portrait on a narrow screen).
+  const rotate = el('div', 'rotate');
+  rotate.innerHTML = '<svg class="rotate-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M19 8a7 7 0 010 8M20.500 14.500L19 16.500l-2-1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  rotate.append(el('p', 'rotate-text', 'Turn your phone sideways to play'));
+  root.append(rotate);
   const screens: Record<Exclude<Screen, 'none'>, HTMLElement> = { menu, pause, settings, help, result };
 
   // ---- events ---------------------------------------------------------------------------

@@ -280,6 +280,72 @@ test.describe('a battle', () => {
     expect(problems).toEqual([]);
   });
 
+  test('R then a click sets a rally point; new units walk to it; X takes the last unit out of a queue', async ({ page }) => {
+    const problems = watchForErrors(page);
+    await startBattle(page, 'seed=3&demo=0&speed=8');
+    const { hub } = await home(page);
+    await give(page, 1000, 0);
+    const spot = { x: hub.x + 7, y: hub.y + 7 };
+    const barracks = (await spawn(page, 'barracks', 0, spot.x + 0.5, spot.y + 0.5))!;
+    await reveal(page, spot.x, spot.y + 2);
+    await clickEntity(page, barracks);
+    await expect.poll(async () => (await snap(page)).selected).toEqual([barracks]);
+    await page.keyboard.press('r');
+    await expect.poll(async () => (await snap(page)).mode).toBe('rally');
+    const rally = { x: spot.x + 7, y: spot.y + 3 };
+    const at = await reveal(page, rally.x - 3, rally.y);
+    const to = (await screenOfPoint(page, rally.x, rally.y))!;
+    expect(at.y).toBeGreaterThan(0);
+    await page.mouse.click(to.x, to.y);
+    await expect.poll(async () => (await entities(page, 'barracks'))[0]!.rally).toBe(true);
+
+    // Two in the queue, the last one cancelled, and the money for it returned.
+    await clickEntity(page, barracks);
+    const before = (await snap(page)).minerals;
+    await page.keyboard.press('q');
+    await page.keyboard.press('q');
+    await expect.poll(async () => (await entities(page, 'barracks'))[0]!.queue).toBe(2);
+    await page.keyboard.press('x');
+    await expect.poll(async () => (await entities(page, 'barracks'))[0]!.queue).toBe(1);
+    expect((await snap(page)).minerals).toBeGreaterThan(before - 120);
+
+    await expect.poll(async () => (await entities(page, 'trooper')).length, { timeout: 30_000 }).toBe(1);
+    await expect
+      .poll(async () => {
+        const t = (await entities(page, 'trooper'))[0]!;
+        return Math.hypot(t.x - rally.x, t.y - rally.y);
+      }, { timeout: 30_000 })
+      .toBeLessThan(2.5);
+    expect(problems).toEqual([]);
+  });
+
+  test('Ctrl+1 stores a group and 1 brings it back; the army and idle-worker buttons find your units', async ({ page }) => {
+    await startBattle(page, 'seed=3&demo=0');
+    const { hub } = await home(page);
+    const ids: number[] = [];
+    for (let i = 0; i < 3; i++) ids.push((await spawn(page, 'trooper', 0, hub.x + 8 + i * 1.5, hub.y + 6))!);
+    await spawn(page, 'worker', 0, hub.x + 4, hub.y + 9);
+    await reveal(page, hub.x + 9, hub.y + 6);
+    await boxAround(page, ids);
+    await expect.poll(async () => (await snap(page)).selected.length).toBe(3);
+    await page.keyboard.press('Control+1');
+    await expect(page.locator('.toast')).toContainText('Group 1 set');
+    await page.mouse.click(300, 130);
+    await expect.poll(async () => (await snap(page)).selected.length).toBe(0);
+    await page.keyboard.press('1');
+    await expect.poll(async () => (await snap(page)).selected.sort()).toEqual([...ids].sort());
+
+    await page.mouse.click(300, 130);
+    await expect(button(page, /^Select army/)).toBeVisible();
+    await button(page, /^Select army/).click();
+    await expect.poll(async () => (await snap(page)).selected.length).toBe(3);
+    await expect(button(page, /^Idle workers/)).toContainText('1');
+    await button(page, /^Idle workers/).click();
+    await expect.poll(async () => (await snap(page)).selected.length).toBe(1);
+    const picked = (await snap(page)).selected[0];
+    expect((await entities(page, 'worker')).find((w) => w.id === picked)).toBeDefined();
+  });
+
   test('destroying the enemy base wins; the result shows, and Play again starts a fresh battle', async ({ page }) => {
     const problems = watchForErrors(page);
     await startBattle(page, 'seed=3&demo=0');

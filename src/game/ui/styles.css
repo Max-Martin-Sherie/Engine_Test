@@ -860,3 +860,50 @@ button {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
+
+/* ---- Upright phone ------------------------------------------------------------------------ */
+
+.rotate {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  background: #060a14;
+  text-align: center;
+  pointer-events: auto;
+}
+
+.rotate-icon {
+  width: 76px;
+  height: 76px;
+  color: var(--accent);
+  animation: rotate-hint 2.4s ease-in-out infinite;
+}
+
+.rotate-text {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+@media (orientation: portrait) and (max-width: 820px) {
+  .rotate {
+    display: flex;
+  }
+}
+
+@keyframes rotate-hint {
+  0%,
+  30% {
+    transform: rotate(0deg);
+  }
+  70%,
+  100% {
+    transform: rotate(-90deg);
+  }
+}

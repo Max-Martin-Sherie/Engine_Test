@@ -20,6 +20,7 @@ export function createFogMap(size: number): FogMap {
   const cells = size * size;
   const target = new Float32Array(cells).fill(1);
   const current = new Float32Array(cells).fill(1);
+  const across = new Float32Array(cells);
   const data = new Uint8Array(cells).fill(255);
   const texture = new THREE.DataTexture(data, size, size, THREE.RedFormat, THREE.UnsignedByteType);
   texture.minFilter = THREE.LinearFilter;
@@ -30,18 +31,37 @@ export function createFogMap(size: number): FogMap {
   texture.needsUpdate = true;
   let dirty = false;
 
+  /** What is drawn: `current` softened by a small blur, so the edge of what can be seen is not a staircase of cells. */
+  function upload(): void {
+    for (let y = 0; y < size; y++) {
+      const row = y * size;
+      for (let x = 0; x < size; x++) {
+        const l = current[row + Math.max(0, x - 1)] ?? 1;
+        const c = current[row + x] ?? 1;
+        const r = current[row + Math.min(size - 1, x + 1)] ?? 1;
+        across[row + x] = (l + 2 * c + r) * 0.25;
+      }
+    }
+    for (let y = 0; y < size; y++) {
+      const up = Math.max(0, y - 1) * size;
+      const here = y * size;
+      const down = Math.min(size - 1, y + 1) * size;
+      for (let x = 0; x < size; x++) {
+        data[here + x] = Math.round(((across[up + x] ?? 1) + 2 * (across[here + x] ?? 1) + (across[down + x] ?? 1)) * 0.25 * 255);
+      }
+    }
+    texture.needsUpdate = true;
+  }
+
   return {
     texture,
     set(vision, snap = false) {
       for (let i = 0; i < cells; i++) {
         const level = vision === null ? 2 : (vision[i] ?? 0);
         target[i] = BRIGHTNESS[level as 0 | 1 | 2] ?? 1;
-        if (snap) {
-          current[i] = target[i] ?? 1;
-          data[i] = Math.round((target[i] ?? 1) * 255);
-        }
+        if (snap) current[i] = target[i] ?? 1;
       }
-      if (snap) texture.needsUpdate = true;
+      if (snap) upload();
       dirty = true;
     },
     update(dt) {
@@ -56,10 +76,9 @@ export function createFogMap(size: number): FogMap {
           if (Math.abs(want - now) < 0.004) now = want;
           else moving = true;
           current[i] = now;
-          data[i] = Math.round(now * 255);
         }
       }
-      texture.needsUpdate = true;
+      upload();
       if (!moving) dirty = false;
     },
   };

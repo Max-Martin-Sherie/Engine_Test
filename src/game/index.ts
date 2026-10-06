@@ -18,6 +18,7 @@ import {
   clockText,
   createSession,
   idleWorkers,
+  nearestMinerals,
   placeAt,
   placementAt,
   pressCard,
@@ -30,7 +31,7 @@ import {
   type Session,
 } from './session';
 import { createSfx } from './sfx';
-import { createMatch, drainEvents, fogAt, isBuilding, isUnit, stepMatch, typeName, type BuildingType, type Match, type MatchEvent } from './sim';
+import { cmdRally, createMatch, drainEvents, fogAt, isBuilding, isUnit, stepMatch, typeName, type BuildingType, type Match, type MatchEvent } from './sim';
 import { createUi, type Level, type SettingKey, type Ui } from './ui';
 import { COLORS, createMinimap, createOverlay, createWorld3d, type Alert, type Ghost, type Minimap, type World3d } from './view';
 
@@ -103,6 +104,9 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
   let onMenuScreen = true;
   let idleCursor = 0;
   const alerts: Alert[] = [];
+  /** Average milliseconds of CPU work per frame (drawing) and per update (the sim): for the dev snapshot. */
+  const cost = { draw: 0, sim: 0, hud: 0 };
+  const smooth = (old: number, sample: number): number => old + (sample - old) * 0.05;
 
   const matchOf = (): Match | null => match ?? demo;
 
@@ -402,6 +406,12 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
     world3d.load(demo.map);
   }
 
+  /** New workers from a hub go straight to its minerals unless the player says otherwise. */
+  function rallyToMinerals(s: Session, hub: { x: number; y: number; id: number }): void {
+    const patch = nearestMinerals(s, hub.x, hub.y);
+    if (patch !== undefined) cmdRally(s.match, s.player, hub.id, patch.x, patch.y);
+  }
+
   function startMatch(seed: number): void {
     profile.seed = seed;
     save();
@@ -417,6 +427,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
     matchStartedAt = performance.now();
     const hub = match.entities.find((e) => e.owner === 0 && e.type === 'hub');
     if (hub !== undefined) {
+      rallyToMinerals(session, hub);
       select(session, [hub.id]);
       world3d.cam.x = hub.x;
       world3d.cam.y = hub.y + 2;
@@ -563,6 +574,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
       case 'built':
         if (ev.owner !== 0 || match === null) return;
         fx.built(ev.x, ev.y, 3, 0);
+        if (ev.entity === 'hub' && session !== null) rallyToMinerals(session, { x: ev.x, y: ev.y, id: ev.id });
         sfx.built();
         if (phase === 'playing') toast(`${typeName(ev.entity)} ready`, 'good');
         return;
@@ -620,6 +632,12 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
   }
 
   function update(): void {
+    const simStart = performance.now();
+    stepPhase();
+    cost.sim = smooth(cost.sim, performance.now() - simStart);
+  }
+
+  function stepPhase(): void {
     if (phase === 'playing' && match !== null) {
       stepBatch(match, speed);
       if (endTicks >= 0) {
@@ -681,7 +699,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
         const a = hubs[0];
         const b = hubs[1] ?? a;
         if (a !== undefined && b !== undefined) {
-          const t = (Math.sin(clockTime * 0.06) + 1) / 2;
+          const t = clamp(0.5 + 0.95 * Math.sin(clockTime * 0.05), 0, 1);
           actionX = a.x + (b.x - a.x) * t;
           actionY = a.y + (b.y - a.y) * t;
         }
@@ -720,6 +738,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
       }
     }
 
+    const drawStart = performance.now();
     const frame = world3d.draw({
       match: m,
       player: 0,
@@ -733,6 +752,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
       allBars: profile.settings.bars,
     });
     overlay.draw(phase === 'menu' ? [] : frame.bars, phase === 'playing' ? controls.box() : null);
+    cost.draw = smooth(cost.draw, performance.now() - drawStart);
 
     if (phase === 'playing' || phase === 'paused') {
       minimap?.draw({ match: m, player: 0, fog: fogOn, quad: world3d.viewQuad(), alerts, now: now / 1000 });
@@ -743,6 +763,17 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
         refreshHud(m, s);
       }
     }
+  }
+
+  // Leaving the game (another tab, a turned phone) pauses it: nobody should lose a base while looking away.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pause();
+  });
+  if (typeof window.matchMedia === 'function') {
+    const portrait = window.matchMedia('(orientation: portrait) and (max-width: 820px)');
+    portrait.addEventListener('change', (event) => {
+      if (event.matches) pause();
+    });
   }
 
   // ---- go ----------------------------------------------------------------------------------------------
@@ -771,6 +802,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
           session,
           profile,
           speed,
+          cost,
           selected: session !== null ? selection(session).map((e) => e.id) : [],
           mode: session?.mode.kind ?? null,
           cam: { ...world3d.cam },
