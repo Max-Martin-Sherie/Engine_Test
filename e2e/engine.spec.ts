@@ -103,11 +103,14 @@ test('the engine canvas paints above a canvas a game lays under it (3D games)', 
     own.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%';
     const host = document.getElementById('game')!;
     host.insertBefore(own, host.firstChild);
-    const hit = document.elementFromPoint(2, 2);
+    // Everything under a point, topmost first (a game's full-window screens may sit above both canvases).
+    const stack = document.elementsFromPoint(2, 2);
     own.remove();
-    return hit === own ? 'game' : hit?.classList.contains('engine-canvas') ? 'engine' : 'other';
+    const engineAt = stack.findIndex((el) => el.classList.contains('engine-canvas'));
+    const ownAt = stack.indexOf(own);
+    return engineAt >= 0 && ownAt >= 0 && engineAt < ownAt ? 'engine above' : `engine at ${engineAt}, game canvas at ${ownAt}`;
   });
-  expect(top).toBe('engine');
+  expect(top).toBe('engine above');
 });
 
 test('the ad service starts in the background and reports a loaded ad', async ({ page }) => {
