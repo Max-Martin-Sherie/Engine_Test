@@ -136,11 +136,14 @@ describe('architecture', () => {
     expect(violations).toEqual([]);
   });
 
-  it('only the view layers import pixi.js, and only engine/services imports Capacitor / AdMob', () => {
+  it('only the view layers import pixi.js, only game/view imports three, and only engine/services imports Capacitor / AdMob', () => {
     const violations: string[] = [];
     for (const file of tsFiles) {
       for (const spec of importsOf(file)) {
         if (spec === 'pixi.js' && file.layer !== 'engine/view' && file.layer !== 'game/view') {
+          violations.push(`${file.path} imports ${spec}`);
+        }
+        if ((spec === 'three' || spec.startsWith('three/')) && file.layer !== 'game/view') {
           violations.push(`${file.path} imports ${spec}`);
         }
         if (spec.startsWith('@capacitor') && file.layer !== 'engine/services') {

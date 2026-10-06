@@ -1,5 +1,5 @@
 import { Application, Container, Graphics } from 'pixi.js';
-import { WORLD } from '../core/config';
+import { WORLD, type WorldSize } from '../core/config';
 import { clientToWorld, clientToWorldX, fitWorld, type Fit, type Point } from '../core/layout';
 
 /**
@@ -7,6 +7,8 @@ import { clientToWorld, clientToWorldX, fitWorld, type Fit, type Point } from '.
  * and the engine renders them once per frame.
  */
 export interface EngineView {
+  /** The element the canvas lives in (#game). A game that draws its own canvas (3D, say) can add it here. */
+  readonly host: HTMLElement;
   /**
    * The play field. Units are world units (see core/config WORLD), (0, 0) is its top-left, and
    * anything outside it is clipped. Usable immediately, even before the renderer is ready.
@@ -47,15 +49,24 @@ function removeAccessibilityHook(app: Application): void {
   }
 }
 
-export function createEngineView(host: HTMLElement): EngineView {
+export interface ViewOptions {
+  /** The play field's size (portrait by default). */
+  world?: WorldSize;
+  /** Leave the canvas transparent, so something drawn underneath (a 3D canvas) shows through. */
+  transparent?: boolean;
+}
+
+export function createEngineView(host: HTMLElement, options: ViewOptions = {}): EngineView {
+  const size = options.world ?? WORLD;
+  const transparent = options.transparent ?? false;
   const app = new Application();
 
-  // world: scaled and centred to fit the screen. field: clipped to the play field.
-  const world = new Container();
+  // worldRoot: scaled and centred to fit the screen. field: clipped to the play field.
+  const worldRoot = new Container();
   const field = new Container();
-  const mask = new Graphics().rect(0, 0, WORLD.width, WORLD.height).fill(0xffffff);
+  const mask = new Graphics().rect(0, 0, size.width, size.height).fill(0xffffff);
   field.mask = mask;
-  world.addChild(mask, field);
+  worldRoot.addChild(mask, field);
 
   let ready = false;
   let background = 0x000000;
@@ -66,17 +77,18 @@ export function createEngineView(host: HTMLElement): EngineView {
   function currentFit(): Fit {
     // app.screen follows the host after a resize; before init, ask the host directly.
     return ready
-      ? fitWorld(app.screen.width, app.screen.height)
-      : fitWorld(host.clientWidth, host.clientHeight);
+      ? fitWorld(app.screen.width, app.screen.height, size)
+      : fitWorld(host.clientWidth, host.clientHeight, size);
   }
 
   function applyLayout(): void {
     const fit = currentFit();
-    world.scale.set(fit.scale);
-    world.position.set(fit.offsetX, fit.offsetY);
+    worldRoot.scale.set(fit.scale);
+    worldRoot.position.set(fit.offsetX, fit.offsetY);
   }
 
   return {
+    host,
     field,
 
     get ready() {
@@ -120,9 +132,10 @@ export function createEngineView(host: HTMLElement): EngineView {
         resolution: Math.min(window.devicePixelRatio || 1, 2),
         antialias: true,
         background,
+        backgroundAlpha: transparent ? 0 : 1,
       });
       host.append(app.canvas);
-      app.stage.addChild(world);
+      app.stage.addChild(worldRoot);
       removeAccessibilityHook(app);
       ready = true;
     },

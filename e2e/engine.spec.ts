@@ -6,9 +6,25 @@ import { expect, test, type Page } from '@playwright/test';
  * letterboxes a canvas. These hold for every game, so game branches keep this file unchanged.
  * The one test that needs a blank screen only runs while src/game is the empty game.
  * Game-specific flows belong in a game's own spec files.
+ *
+ * A game may be landscape (boot's `orientation` in src/main.ts) and may draw its own canvas under the engine's
+ * (marked `data-layer`); the expectations below follow both.
  */
 
 const EMPTY_GAME = readFileSync('src/game/index.ts', 'utf8').includes('IS_EMPTY_GAME = true');
+
+const LANDSCAPE = /orientation:s*['"]landscape['"]/.test(readFileSync('src/main.ts', 'utf8'));
+/** The play field in world units. */
+const WORLD = LANDSCAPE ? { width: 640, height: 360 } : { width: 360, height: 640 };
+
+/** Where the world should sit in a screen of this size: scaled to fit, centred. */
+function expectedFit(width: number, height: number): { scale: number; offsetX: number; offsetY: number } {
+  const scale = Math.min(width / WORLD.width, height / WORLD.height);
+  return { scale, offsetX: (width - WORLD.width * scale) / 2, offsetY: (height - WORLD.height * scale) / 2 };
+}
+
+/** The engine's own canvas (a game's canvas, if it has one, carries `data-layer`). */
+const ENGINE_CANVAS = '#game canvas:not([data-layer])';
 
 const SHOTS = 'e2e/screenshots';
 
@@ -39,22 +55,26 @@ test('boots with a real renderer, a letterboxed canvas and no stray DOM', async 
   // PixiJS picked a real renderer (WebGPU, or WebGL as the fallback).
   expect(['webgpu', 'webgl']).toContain((await engine(page))?.renderer);
 
-  // One canvas at the capped resolution: a 2.625 DPR phone renders at 2x, not 2.625x.
-  const canvas = await page.evaluate(() => {
-    const c = document.querySelector('canvas');
+  // One engine canvas at the capped resolution: a 2.625 DPR phone renders at 2x, not 2.625x.
+  const view = page.viewportSize();
+  expect(view).not.toBeNull();
+  const { width: vw, height: vh } = view!;
+  const canvas = await page.evaluate((selector) => {
+    const c = document.querySelector<HTMLCanvasElement>(selector);
     return c ? { width: c.width, height: c.height, cssWidth: c.clientWidth, cssHeight: c.clientHeight } : null;
-  });
-  expect(canvas).toEqual({ width: 824, height: 1678, cssWidth: 412, cssHeight: 839 });
-  expect(await page.locator('canvas').count()).toBe(1);
+  }, ENGINE_CANVAS);
+  expect(canvas).toEqual({ width: vw * 2, height: vh * 2, cssWidth: vw, cssHeight: vh });
+  expect(await page.locator(ENGINE_CANVAS).count()).toBe(1);
 
   // Pixi's phone-only accessibility hook button is removed.
   expect(await page.locator('button[title*="enable accessibility"]').count()).toBe(0);
 
-  // Letterboxed: 9:16 world on a taller phone screen leaves bars top and bottom.
+  // Letterboxed: the world is scaled to fit and centred, with bars on the longer side.
   const fit = (await engine(page))?.fit;
-  expect(fit?.scale).toBeCloseTo(412 / 360, 6);
-  expect(fit?.offsetX).toBeCloseTo(0, 6);
-  expect(fit?.offsetY).toBeCloseTo((839 - 640 * (412 / 360)) / 2, 6);
+  const want = expectedFit(vw, vh);
+  expect(fit?.scale).toBeCloseTo(want.scale, 6);
+  expect(fit?.offsetX).toBeCloseTo(want.offsetX, 6);
+  expect(fit?.offsetY).toBeCloseTo(want.offsetY, 6);
 
   expect(problems).toEqual([]);
 });
@@ -91,16 +111,14 @@ test('?ads=no-fill: no ad ever loads', async ({ page }) => {
 test.describe('wide desktop window', () => {
   test.use({ viewport: { width: 1100, height: 640 }, isMobile: false, hasTouch: false, deviceScaleFactor: 1 });
 
-  test('letterboxes with bars left and right, and re-fits when the window is resized', async ({ page }) => {
+  test('letterboxes to the window, and re-fits when the window is resized', async ({ page }) => {
     const problems = watchForErrors(page);
     await page.goto('/');
     await waitForRenderer(page);
-    expect((await engine(page))?.fit).toEqual({ scale: 1, offsetX: 370, offsetY: 0 });
+    expect((await engine(page))?.fit).toEqual(expectedFit(1100, 640));
 
     await page.setViewportSize({ width: 720, height: 1280 });
-    await expect
-      .poll(async () => (await engine(page))?.fit, { timeout: 5000 })
-      .toEqual({ scale: 2, offsetX: 0, offsetY: 0 });
+    await expect.poll(async () => (await engine(page))?.fit, { timeout: 5000 }).toEqual(expectedFit(720, 1280));
     expect(problems).toEqual([]);
   });
 });

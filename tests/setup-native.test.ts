@@ -10,6 +10,7 @@ import {
   patchAndroidManifest,
   patchAndroidStrings,
   patchInfoPlist,
+  readOrientation,
   setupNative,
 } from '../scripts/setup-native.mjs';
 
@@ -30,6 +31,55 @@ function expectBalanced(xml: string, tags: string[]): void {
     expect(opened, tag).toBe(count(xml, `</${tag}>`));
   }
 }
+
+describe('landscape games', () => {
+  const roots: string[] = [];
+  afterEach(() => {
+    for (const dir of roots.splice(0)) rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('Android: locks MainActivity to sensorLandscape, once, and is idempotent', () => {
+    const patched = patchAndroidManifest(MANIFEST, 'landscape');
+    const activity = /<activity\b[^>]*>/.exec(patched)?.[0] ?? '';
+    expect(activity).toContain('android:screenOrientation="sensorLandscape"');
+    expect(count(activity, 'screenOrientation')).toBe(1);
+    expect(patchAndroidManifest(patched, 'landscape')).toBe(patched);
+    // And switching an app from portrait to landscape corrects the old lock.
+    const wasPortrait = patchAndroidManifest(MANIFEST);
+    expect(patchAndroidManifest(wasPortrait, 'landscape')).toBe(patched);
+  });
+
+  it('iOS: allows both landscape directions on iPhone only, and is idempotent', () => {
+    const patched = patchInfoPlist(PLIST, { orientation: 'landscape' });
+    expect(patched).toMatch(
+      /<key>UISupportedInterfaceOrientations<\/key>\s*<array>\s*<string>UIInterfaceOrientationLandscapeLeft<\/string>\s*<string>UIInterfaceOrientationLandscapeRight<\/string>\s*<\/array>/,
+    );
+    expect(patched).not.toMatch(/<key>UISupportedInterfaceOrientations<\/key>\s*<array>[^]*?UIInterfaceOrientationPortrait<\/string>\s*<\/array>\s*<key>/);
+    const ipad = (xml: string) => /<key>UISupportedInterfaceOrientations~ipad<\/key>\s*<array>[\s\S]*?<\/array>/.exec(xml)?.[0];
+    expect(ipad(patched)).toBe(ipad(PLIST));
+    expect(patchInfoPlist(patched, { orientation: 'landscape' })).toBe(patched);
+  });
+
+  it('reads the orientation from capacitor.config.json, and says so', () => {
+    const root = mkdtempSync(join(tmpdir(), 'native-'));
+    roots.push(root);
+    const write = (relative: string, text: string): void => {
+      mkdirSync(dirname(join(root, relative)), { recursive: true });
+      writeFileSync(join(root, relative), text);
+    };
+    write('capacitor.config.json', JSON.stringify({ appId: 'x.y', orientation: 'landscape' }));
+    write('android/app/src/main/AndroidManifest.xml', MANIFEST);
+    write('android/app/src/main/res/values/strings.xml', STRINGS);
+    const messages: string[] = [];
+    setupNative('android', { root, env: {}, log: (m) => messages.push(m) });
+    expect(readFileSync(join(root, 'android/app/src/main/AndroidManifest.xml'), 'utf8')).toContain('sensorLandscape');
+    expect(messages[0]).toContain('landscape');
+    expect(readOrientation(root)).toBe('landscape');
+    write('capacitor.config.json', '{ not json');
+    expect(readOrientation(root)).toBe('portrait');
+    expect(readOrientation(join(root, 'nowhere'))).toBe('portrait');
+  });
+});
 
 describe('Android manifest', () => {
   const patched = patchAndroidManifest(MANIFEST);

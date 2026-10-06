@@ -1,9 +1,40 @@
 import { describe, expect, it } from 'vitest';
-import { WORLD } from '../src/engine/core/config';
+import { LANDSCAPE_WORLD, WORLD, worldFor } from '../src/engine/core/config';
 import { clientToWorld, clientToWorldX, fitWorld } from '../src/engine/core/layout';
 import { computeStageLayout } from '../src/engine/ui/stage';
 
 const NO_INSETS = { top: 0, right: 0, bottom: 0, left: 0 };
+
+describe('landscape worlds', () => {
+  it('is 16:9, picked by name, and portrait stays the default', () => {
+    expect(LANDSCAPE_WORLD).toEqual({ width: 640, height: 360 });
+    expect(worldFor('landscape')).toBe(LANDSCAPE_WORLD);
+    expect(worldFor('portrait')).toBe(WORLD);
+    expect(WORLD).toEqual({ width: 360, height: 640 });
+  });
+
+  it('fits a 16:9 window exactly and adds bars top and bottom on a taller one', () => {
+    expect(fitWorld(1280, 720, LANDSCAPE_WORLD)).toEqual({ scale: 2, offsetX: 0, offsetY: 0 });
+    const tall = fitWorld(1000, 800, LANDSCAPE_WORLD);
+    expect(tall.scale).toBe(1000 / 640);
+    expect(tall.offsetX).toBe(0);
+    expect(tall.offsetY).toBeCloseTo((800 - 360 * tall.scale) / 2, 9);
+  });
+
+  it('adds bars left and right on a phone held sideways (20:9)', () => {
+    const fit = fitWorld(915, 412, LANDSCAPE_WORLD);
+    expect(fit.scale).toBeCloseTo(412 / 360, 9);
+    expect(fit.offsetY).toBe(0);
+    expect(fit.offsetX).toBeCloseTo((915 - 640 * fit.scale) / 2, 9);
+    expect(clientToWorld(fit.offsetX, 0, 0, 0, fit)).toEqual({ x: 0, y: 0 });
+    expect(clientToWorld(fit.offsetX + 640 * fit.scale, 412, 0, 0, fit).x).toBeCloseTo(640, 6);
+  });
+
+  it('puts the stage over the landscape field', () => {
+    const layout = computeStageLayout(1280, 720, NO_INSETS, LANDSCAPE_WORLD);
+    expect(layout).toMatchObject({ left: 0, top: 0, width: 1280, height: 720, unit: 2 });
+  });
+});
 
 describe('fitWorld (letterboxing)', () => {
   it('is 9:16, so a phone-shaped window fits exactly', () => {
