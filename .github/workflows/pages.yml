@@ -8,7 +8,7 @@ name: Playable builds
 
 on:
   push:
-    branches: [main, rockfall, fruitslice, echoloop]
+    branches: [main, rockfall, fruitslice, echoloop, novafrontier]
   workflow_dispatch:
 
 permissions:

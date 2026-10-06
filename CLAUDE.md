@@ -44,10 +44,17 @@ src/game/              the game - everything the player sees and does
 plus drag gestures via `input.onGesture`: start/move/end/cancel, only for presses that begin on the
 canvas, never on DOM buttons), `view` (`view.field` to draw into, `view.clientToWorld(x, y)` /
 `clientToWorldX`, `view.setBackground`), `ads` (rewarded + interstitial), `analytics`, `haptics`,
-`audio` (both have `setEnabled`), `params` (URL query), `uiRoot` (#ui), `world` (360 x 640) and
-`resetClock()`. The game
+`audio` (both have `setEnabled`), `params` (URL query), `uiRoot` (#ui), `world` (360 x 640 portrait by
+default, 640 x 360 landscape) and `resetClock()`. The game
 returns `{ step, update(dt), render(alpha) }`: a fixed step in seconds, a simulation step, and a
 function that updates what is drawn. The engine calls `render`, then draws the frame.
+
+**Orientation and 3D.** `src/main.ts` may pass options: `boot(createGame, { orientation: 'landscape', transparent: true })`.
+`orientation` picks the world (portrait 360 x 640, landscape 640 x 360; it is letterboxed to the screen either way),
+and a landscape game also sets `"orientation": "landscape"` in `capacitor.config.json` so `setup-native.mjs` locks the
+native apps to landscape. `transparent` leaves the Pixi canvas see-through and `view.host` is the element it lives in, so a
+game can put its own canvas (Three.js for 3D) underneath and use the Pixi layer for its 2D overlay. Game DOM UI takes the
+world from the context: `createStage(root, context.world)`. Only `game/view` may import `three`.
 
 The engine starts the loop immediately and starts the renderer and ad SDK in the background; a
 game's DOM UI must never wait for them. `view.field` is usable at once, before the renderer is

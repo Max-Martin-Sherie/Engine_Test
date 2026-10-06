@@ -112,7 +112,7 @@ each animation frame:
 the previous step) and `render(alpha)` draws `lerp(prev, current, alpha)`. That is what makes motion
 smooth at any refresh rate.
 
-**The world.** All game coordinates are in a fixed **360 × 640** world (portrait 9:16). The engine
+**The world.** All game coordinates are in a fixed **360 × 640** world (portrait 9:16; a landscape game passes `{ orientation: 'landscape' }` to `boot` in `src/main.ts` and gets **640 × 360**, with `"orientation": "landscape"` in `capacitor.config.json` for the native apps). The engine
 scales it to fit the window and draws black bars if the window is a different shape (letterbox).
 `view.clientToWorld(x, y)` converts a screen/pointer position to world units. DOM UI sized with the
 `--u` CSS variable (CSS pixels per world unit) lines up with the canvas.
@@ -191,6 +191,7 @@ All services are safe: they never throw into your code.
 | `encodeInts(list)` / `decodeInts(text)` (`engine/core/replay`) | Turns a recorded input list into short URL-safe text and back (decode returns `null` for bad text). A deterministic game stores `seed + inputs`, puts them in a link, and anyone replays the exact run. Keep the sim free of `Math.sin/cos/pow` if replays must match across browsers. |
 | `params.get('seed')` | URL query flags. Engine itself reads `?ads=no-fill` / `?ads=skip` (fake ad failures). |
 | `resetClock()` | Call after un-pausing so the loop does not see a big time gap. |
+| `view.host`, `boot(createGame, { transparent: true })` | For a 3D game: the Pixi canvas becomes see-through, and you put your own canvas (Three.js) in `view.host` underneath; Pixi then draws only the 2D overlay (minimap, health bars, selection box). Only `game/view` may import `three`. |
 
 In a **browser** ads are a fake service (a "Test ad" overlay). On a **device** the same calls go to
 AdMob. Your game code is identical.
