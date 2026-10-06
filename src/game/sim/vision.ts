@@ -25,6 +25,7 @@ export function visionRadius(e: Entity): number {
 
 /** Recomputes what both players can see. */
 export function updateVision(m: Match): void {
+  m.visionTick = m.tick;
   const s = m.map.size;
   for (let p = 0; p < m.vision.length; p++) {
     const grid = m.vision[p]!;

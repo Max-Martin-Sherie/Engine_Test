@@ -15,6 +15,7 @@ import {
   cancelQueued,
   cardFor,
   centreOf,
+  clearSelection,
   clockText,
   createSession,
   idleWorkers,
@@ -168,6 +169,12 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
       onCancelQueue: (index: number) => {
         if (session === null) return;
         act(cancelQueued(session, index));
+        hudDirty = true;
+      },
+      onDeselect: () => {
+        if (session === null || phase !== 'playing') return;
+        clearSelection(session);
+        sfx.click();
         hudDirty = true;
       },
       onIdleWorker: () => jumpToIdleWorker(),
@@ -822,7 +829,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
           screenOf: (id: number) => {
             const e = matchOf()?.byId.get(id);
             if (e === undefined) return null;
-            const p = world3d.project(e.x, e.y, 0.4);
+            const p = world3d.projectEntity(e);
             if (p === null) return null;
             const fit = view.fit();
             return { x: fit.offsetX + p.x * fit.scale, y: fit.offsetY + p.y * fit.scale };
@@ -847,6 +854,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
               p.gas += gas;
             }
           },
+          fogBrightness: (x: number, y: number) => world3d.fogBrightness(x, y),
           start: (seed: number) => startMatch(seed),
           /** Drops an entity into the match, skipping the rules (tests and screenshots only). */
           spawn: async (type: string, owner: number, x: number, y: number, finished = true) => {

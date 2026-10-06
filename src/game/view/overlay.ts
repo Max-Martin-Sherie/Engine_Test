@@ -40,7 +40,7 @@ export function createOverlay(field: Container): Overlay {
         const y = Math.min(box.y0, box.y1);
         const w = Math.abs(box.x1 - box.x0);
         const h = Math.abs(box.y1 - box.y0);
-        g.rect(x, y, w, h).fill({ color: COLORS.boxFill, alpha: 0.1 }).stroke({ width: 1.2, color: COLORS.boxFill, alpha: 0.9 });
+        g.rect(x, y, w, h).fill({ color: COLORS.boxFill, alpha: 0.1 }).stroke({ width: 1.6, color: COLORS.boxFill, alpha: 1 });
       }
     },
 

@@ -92,6 +92,8 @@ export interface World3d {
   groundAt(sx: number, sy: number): Screen2D | null;
   /** Where a map point (and height above the ground) lands on the screen. */
   project(x: number, y: number, h?: number): Screen2D | null;
+  /** Where the middle of an entity's body is on the screen (a flyer is drawn high above its shadow). */
+  projectEntity(e: Entity): Screen2D | null;
   /** The entity under a screen point (units first, then buildings, then resources). `slop` widens the target for fingers. */
   pick(match: Match, player: number, fog: boolean, sx: number, sy: number, slop?: number): Entity | null;
   /** The player's own units (or, failing that, buildings) whose middle is inside the screen rectangle. */
@@ -100,6 +102,8 @@ export interface World3d {
   viewQuad(): Screen2D[];
   /** Keeps the camera over the map. */
   clampCamera(): void;
+  /** How bright the fog leaves a map cell right now, 0 (black) to 1 (clear). For tests. */
+  fogBrightness(x: number, y: number): number;
   dispose(): void;
 }
 
@@ -354,10 +358,11 @@ export function createWorld3d(host: HTMLElement, world: WorldSize): World3d {
       if (fogShown !== true) {
         fogMap.set(m.vision[player] ?? null, true);
         fogShown = true;
-        fogTick = m.tick;
-      } else if (m.tick !== fogTick && m.tick % 4 === 0) {
+        fogTick = m.visionTick;
+      } else if (m.visionTick !== fogTick) {
+        // The sim recomputed what can be seen: show it (whichever frame notices first, however slow the frames).
         fogMap.set(m.vision[player] ?? null);
-        fogTick = m.tick;
+        fogTick = m.visionTick;
       }
     } else if (fogShown !== false) {
       fogMap.set(null, true);
@@ -677,10 +682,16 @@ export function createWorld3d(host: HTMLElement, world: WorldSize): World3d {
       return project(x, y, h);
     },
 
+    projectEntity(e) {
+      updateCamera();
+      return project(e.x, e.y, (MODELS[e.type].altitude ?? 0) + MODELS[e.type].height * 0.5);
+    },
+
     pick,
     boxSelect,
     viewQuad,
     clampCamera,
+    fogBrightness: (x, y) => fogMap.valueAt(x, y),
 
     dispose() {
       terrain?.dispose();

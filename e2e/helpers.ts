@@ -172,3 +172,29 @@ export async function reveal(page: Page, x: number, y: number, zoom = 22): Promi
   expect(at!.y, 'the point is above the bottom panel').toBeLessThan(290);
   return at!;
 }
+
+/**
+ * How green the greenest pixel in a screen region is (green minus the larger of red and blue, 0..255): a selection
+ * outline is bright green, the terrain is blue-grey. Reads the real screenshot, so it sees what the player sees.
+ */
+export async function greenness(page: Page, clip: { x: number; y: number; width: number; height: number }): Promise<number> {
+  const png = await page.screenshot({ clip });
+  return page.evaluate(async (b64) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(img, 0, 0);
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let best = -255;
+    for (let i = 0; i < data.length; i += 4) best = Math.max(best, data[i + 1]! - Math.max(data[i]!, data[i + 2]!));
+    return best;
+  }, png.toString('base64'));
+}
+
+/** How bright the fog leaves a map cell, 0 (black) to 1 (clear). */
+export const fogBrightness = (page: Page, x: number, y: number): Promise<number> =>
+  page.evaluate(([px, py]) => (window.__game!.debug as Record<string, any>)['fogBrightness'](px, py), [x, y] as const);

@@ -33,6 +33,8 @@ export interface Match {
   pathVersion: number;
   /** Per player: 0 never seen, 1 seen before, 2 in sight now. */
   vision: Uint8Array[];
+  /** The tick `vision` was last recomputed (the picture redraws the fog when this changes). */
+  visionTick: number;
   events: MatchEvent[];
   /** -1 while playing; 0 or 1 when that player has won. */
   winner: number;

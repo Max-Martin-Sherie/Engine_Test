@@ -5,6 +5,23 @@ import { ARENA, building, find, quiet, run, unit } from './helpers/world';
 const { x: X, y: Y } = ARENA;
 
 describe('fog of war', () => {
+  it('says when it was last recomputed, so a slow picture never misses a refresh', () => {
+    const m = quiet(1, true);
+    const start = m.visionTick;
+    unit(m, 'trooper', 0, X, Y);
+    expect(m.visionTick).toBeGreaterThanOrEqual(start); // the helper refreshed it
+    run(m, 1);
+    expect(m.visionTick).toBe(Math.floor(m.tick / 4) * 4);
+    const seen = new Set<number>();
+    for (let i = 0; i < 40; i++) {
+      run(m, 0.05);
+      seen.add(m.visionTick);
+    }
+    // Every fourth tick, and never behind by more than three ticks.
+    expect(seen.size).toBe(11); // ticks 20, 24, ... 60
+    expect(m.tick - m.visionTick).toBeLessThan(4);
+  });
+
   it('each side sees its own start and not the other\'s', () => {
     const m = quiet(1);
     const a = find(m, 'hub', 0)!;

@@ -50,6 +50,7 @@ export function createMatch(options: MatchOptions): Match {
     blocked: map.rock.slice(),
     pathVersion: 0,
     vision: [new Uint8Array(map.size * map.size), new Uint8Array(map.size * map.size)],
+    visionTick: -1,
     events: [],
     winner: -1,
     pathfinder: new Pathfinder(map.size),

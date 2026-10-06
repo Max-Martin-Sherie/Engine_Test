@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 
 /** How bright a cell looks: never seen, seen before, in sight. */
-const BRIGHTNESS = [0, 0.46, 1] as const;
+const BRIGHTNESS = [0, 0.62, 1] as const;
 
 export interface FogMap {
   readonly texture: THREE.DataTexture;
@@ -14,6 +14,8 @@ export interface FogMap {
   set(vision: Uint8Array | null, snap?: boolean): void;
   /** Fades toward the target. */
   update(dt: number): void;
+  /** How bright a cell is drawn right now, 0..1 (for tests). */
+  valueAt(x: number, y: number): number;
 }
 
 export function createFogMap(size: number): FogMap {
@@ -64,6 +66,12 @@ export function createFogMap(size: number): FogMap {
       if (snap) upload();
       dirty = true;
     },
+    valueAt(x, y) {
+      const cx = Math.min(size - 1, Math.max(0, Math.floor(x)));
+      const cy = Math.min(size - 1, Math.max(0, Math.floor(y)));
+      return (data[cy * size + cx] ?? 255) / 255;
+    },
+
     update(dt) {
       if (!dirty) return;
       const k = 1 - Math.exp(-dt * 8);

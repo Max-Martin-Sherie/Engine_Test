@@ -243,7 +243,8 @@ export function createControls(o: ControlsOptions): Controls {
     }
     if (pointers.size > 1 || ignoreUntilUp.has(e.pointerId)) return;
 
-    if (!touch && e.button === 2) {
+    // A right click: the right button, or Ctrl + click (a Mac trackpad has no right button).
+    if (!touch && (e.button === 2 || (e.button === 0 && e.ctrlKey))) {
       rightClick(s, p.point);
       return;
     }

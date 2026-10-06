@@ -184,10 +184,12 @@ a frame in a 115-entity battle.
   `cardFor` returns the nine buttons with their costs and, when disabled, the reason. It has no DOM, so
   `tests/session.test.ts` drives it directly.
 - `controls.ts` turns pointer and key events into calls on the session. **Mouse:** left click selects
-  (drag a box; double click selects every unit of that kind on screen), right click orders, middle drag
-  pans, the wheel zooms about the cursor. **Touch:** tap selects or orders by what is under the finger,
+  (drag a box; double click selects every unit of that kind on screen), right click (or Ctrl + click, for a trackpad)
+  orders, middle drag pans, the wheel zooms about the cursor. **Touch:** tap selects or orders by what is under the finger,
   drag pans, **press-and-hold then drag** boxes, two fingers pinch and pan, a long press on the minimap
-  orders. Building by touch is *choose, tap where, press Build here*, because there is no hover.
+  orders, and an x on the selection panel lets go of the selection (a tap on the ground would send the units
+  there). There is no right click on touch: a tap on an enemy attacks, on minerals mines, on the ground moves.
+  Building by touch is *choose, tap where, press Build here*, because there is no hover.
 - `ui/` is the DOM: top bar, minimap box, selection panel, the 3 x 3 card, and the menus. It takes
   plain values (`HudInfo`, `SelectionInfo`, `CardButton[]`) and reports presses through callbacks;
   it never sees the match. The HUD root is `pointer-events: none`, only its buttons take presses, and

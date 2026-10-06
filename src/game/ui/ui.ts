@@ -29,6 +29,8 @@ export interface UiCallbacks {
   /** A unit icon in the selection panel was pressed. */
   onPick(id: number): void;
   onCancelQueue(index: number): void;
+  /** The x on the selection panel: let go of everything selected. */
+  onDeselect(): void;
   onIdleWorker(): void;
   onArmy(): void;
 }
@@ -144,7 +146,7 @@ const HELP: readonly { title: string; rows: readonly [string, string][] }[] = [
     title: 'Mouse and keyboard',
     rows: [
       ['Left click / drag', 'Select · drag a box around units'],
-      ['Right click', 'Move, attack, mine or set a rally point'],
+      ['Right click (or Ctrl + click)', 'Move, attack, mine or set a rally point'],
       ['A then click', 'Attack-move: fight whatever you meet'],
       ['S · H', 'Stop · hold position'],
       ['B, then D / B / R / F / A / T', 'Workers: build a depot, barracks, refinery, factory, airfield, turret'],
@@ -163,7 +165,9 @@ const HELP: readonly { title: string; rows: readonly [string, string][] }[] = [
       ['Press and hold, then drag', 'Draw a selection box'],
       ['Two fingers', 'Pinch to zoom and pan'],
       ['Double tap a unit', 'Select all of that kind on screen'],
-      ['Minimap', 'Tap or drag to move the camera'],
+      ['Minimap', 'Tap or drag to move the camera; press and hold to send your units there'],
+      ['x on the selection panel', 'Let go of your selection (a tap on the ground would send the units there)'],
+      ['Move, Attack, Rally buttons', 'Press one, then tap the ground, instead of tapping straight away'],
     ],
   },
   {
@@ -234,7 +238,14 @@ export function createUi(root: HTMLElement, cb: UiCallbacks, world: { width: num
 
   const selection = el('div', 'selection');
   const selectionBody = el('div', 'selection-body');
-  selection.append(selectionBody);
+  // Touch has no Escape: this is how you let go of a selection (a tap on the ground sends the units there).
+  const deselect = el('button', 'sel-close');
+  deselect.type = 'button';
+  deselect.dataset['action'] = 'deselect';
+  deselect.title = 'Deselect';
+  deselect.setAttribute('aria-label', 'Deselect');
+  deselect.innerHTML = icon('cancel', 'sel-close-icon');
+  selection.append(selectionBody, deselect);
 
   const card = el('div', 'card');
   bottom.append(mapBox, selection, card);
@@ -365,6 +376,7 @@ export function createUi(root: HTMLElement, cb: UiCallbacks, world: { width: num
       case 'card': return cb.onCard(b.dataset['id'] ?? '');
       case 'pick': return cb.onPick(Number(b.dataset['id']));
       case 'cancel-queue': return cb.onCancelQueue(Number(b.dataset['index']));
+      case 'deselect': return cb.onDeselect();
       default:
     }
   };
@@ -423,9 +435,11 @@ export function createUi(root: HTMLElement, cb: UiCallbacks, world: { width: num
           selectionRefs = null;
         }
         selection.classList.add('is-empty');
+        deselect.hidden = true;
         return;
       }
       selection.classList.remove('is-empty');
+      deselect.hidden = false;
       const signature = [info.title, info.icon, info.team, info.items.map((i) => i.id).join(','), info.queue.map((q) => q.icon).join(','), info.lines.join('|'), info.hp >= 0, info.building >= 0].join('#');
       if (signature !== selectionSignature) {
         selectionSignature = signature;

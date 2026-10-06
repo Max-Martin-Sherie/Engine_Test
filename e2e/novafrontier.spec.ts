@@ -6,8 +6,10 @@ import {
   destroyBuildings,
   entities,
   focus,
+  fogBrightness,
   freeSpot,
   give,
+  greenness,
   home,
   minerals,
   reveal,
@@ -199,6 +201,25 @@ test.describe('a battle', () => {
     expect(problems).toEqual([]);
   });
 
+  test('Ctrl+click works as a right click (a Mac trackpad has no right button), and the x deselects', async ({ page }) => {
+    await startBattle(page, 'seed=3&demo=0');
+    const { hub } = await home(page);
+    const id = (await spawn(page, 'trooper', 0, hub.x + 5, hub.y + 5))!;
+    await reveal(page, hub.x + 8, hub.y + 6, 24);
+    await clickEntity(page, id);
+    await expect.poll(async () => (await snap(page)).selected).toEqual([id]);
+    const to = (await screenOfPoint(page, hub.x + 10, hub.y + 6))!;
+    await page.keyboard.down('Control');
+    await page.mouse.click(to.x, to.y);
+    await page.keyboard.up('Control');
+    await expect.poll(async () => (await entities(page, 'trooper'))[0]!.order).toBe('move');
+    // Still selected: the order did not change the selection. The x lets go of it.
+    expect((await snap(page)).selected).toEqual([id]);
+    await page.getByRole('button', { name: 'Deselect' }).click();
+    await expect.poll(async () => (await snap(page)).selected).toEqual([]);
+    await expect(page.getByRole('button', { name: 'Deselect' })).toBeHidden();
+  });
+
   test('an order that cannot work says why instead of doing nothing', async ({ page }) => {
     await startBattle(page, 'seed=3&demo=0');
     const { workers } = await home(page);
@@ -247,6 +268,42 @@ test.describe('a battle', () => {
     await page.mouse.move(450, 150);
     await page.mouse.wheel(0, -300);
     await expect.poll(async () => (await snap(page)).cam.zoom).toBeLessThan(z - 1);
+  });
+
+  test('dragging a selection box draws a green outline over the 3D view', async ({ page }) => {
+    await startBattle(page, 'seed=3&demo=0');
+    // A strip across the box's left edge (away from the Hub's own green selection frame).
+    const strip = { x: 292, y: 150, width: 16, height: 40 };
+    await page.waitForTimeout(500);
+    expect(await greenness(page, strip)).toBeLessThan(30);
+    await page.mouse.move(300, 110);
+    await page.mouse.down();
+    await page.mouse.move(420, 180, { steps: 6 });
+    await page.mouse.move(520, 240, { steps: 6 });
+    await page.waitForTimeout(300);
+    expect(await greenness(page, strip)).toBeGreaterThan(60);
+    await shot(page, '15-selection-box');
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    expect(await greenness(page, strip)).toBeLessThan(30);
+  });
+
+  test('exploring clears the fog: the ground goes from black to lit as a scout arrives, and is remembered after it leaves', async ({ page }) => {
+    await startBattle(page, 'seed=3&demo=0'); // normal speed
+    const { hub } = await home(page);
+    const scout = (await spawn(page, 'skiff', 0, hub.x + 4, hub.y + 5))!;
+    const goal = { x: hub.x + 22, y: hub.y + 24 };
+    expect(await fogBrightness(page, goal.x, goal.y)).toBe(0);
+    await clickEntity(page, scout);
+    const at = await reveal(page, goal.x, goal.y, 34);
+    await page.mouse.click(at.x, at.y, { button: 'right' });
+    await expect.poll(async () => await fogBrightness(page, goal.x, goal.y), { timeout: 30_000 }).toBeGreaterThan(0.95);
+    // Send it home: the ground it explored stays on the map, dimmer, instead of going black again.
+    const home1 = await reveal(page, hub.x + 4, hub.y + 5, 34);
+    await page.mouse.click(home1.x, home1.y, { button: 'right' });
+    await expect.poll(async () => (await entities(page, 'skiff'))[0]!.x, { timeout: 30_000 }).toBeLessThan(hub.x + 8);
+    await expect.poll(async () => await fogBrightness(page, goal.x, goal.y), { timeout: 10_000 }).toBeLessThan(0.8);
+    expect(await fogBrightness(page, goal.x, goal.y)).toBeGreaterThan(0.4);
   });
 
   test('a fight: units sent to attack-move meet the enemy, shoot, and win', async ({ page }) => {
