@@ -281,6 +281,9 @@ export function createCharacters(litMaterial: THREE.Material, glowMaterial: THRE
     body.clock = 0;
     const note = body.note;
     body.note = null;
+    // Slack from the first moment, in the direction the shot came (or the way the body faced).
+    if (note !== null) r.limp(Math.sin(note.fromYaw), Math.cos(note.fromYaw));
+    else r.limp(-Math.sin(a.yaw), -Math.cos(a.yaw));
     if (note !== null) {
       const dx = Math.sin(note.fromYaw);
       const dz = Math.cos(note.fromYaw);

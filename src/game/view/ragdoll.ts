@@ -39,6 +39,21 @@ export class Ragdoll {
     }
   }
 
+  /**
+   * Goes slack. A body that has just been killed does not hold itself up, but a pose with straight legs balances all
+   * by itself in this model (nothing perturbs it), so the knees are given a small push the way (dx, dz) points; that is
+   * all it takes for the weight above them to fold the legs.
+   */
+  limp(dx: number, dz: number): void {
+    const len = Math.hypot(dx, dz) || 1;
+    for (const k of [J.knL, J.knR]) {
+      this.prev[k * 3] = this.prev[k * 3]! - (dx / len) * 0.9 * DT;
+      this.prev[k * 3 + 2] = this.prev[k * 3 + 2]! - (dz / len) * 0.9 * DT;
+    }
+    this.asleep = false;
+    this.still = 0;
+  }
+
   /** A shove: the joints near a point are thrown along a direction, the nearer the harder. */
   push(x: number, y: number, z: number, dx: number, dy: number, dz: number, power: number, radius: number): void {
     for (let i = 0; i < JOINTS; i++) {
@@ -118,7 +133,11 @@ export class Ragdoll {
       this.collide(arena, it === ITERATIONS - 1);
     }
     // Rest when the body as a whole has barely moved for a while (or has lain there long enough that nobody can tell).
-    if (moved / JOINTS < 0.0012) {
+    // A body still standing up (holding a balanced pose) is not at rest, however little it moves.
+    let low = Infinity;
+    for (let j = 0; j < JOINTS; j++) low = Math.min(low, p[j * 3 + 1]!);
+    const upright = p[J.pelvis * 3 + 1]! - low > 0.45;
+    if (moved / JOINTS < 0.0012 && !upright) {
       this.still += 1;
       if (this.still > 30) this.asleep = true;
     } else this.still = 0;

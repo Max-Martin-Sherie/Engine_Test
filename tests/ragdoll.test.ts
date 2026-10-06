@@ -136,3 +136,30 @@ describe('the ragdoll', () => {
     expect(run()).toEqual(run());
   });
 });
+
+describe('a body that is shot standing still', () => {
+  const lieDown = (power: number, head: boolean): Ragdoll => {
+    const joints = standing();
+    const r = new Ragdoll(joints, 0, 0, 0);
+    r.limp(0, -1);
+    const at = head ? J.head : J.spine;
+    r.push(r.pos[at * 3]!, r.pos[at * 3 + 1]!, r.pos[at * 3 + 2]!, 0, 0.2, 1, power, 0.8);
+    settle(r, emptyArena(), 5);
+    return r;
+  };
+
+  it('does not stay upright, even when the shot is a weak one', () => {
+    for (const [power, head] of [[2.4, false], [2.8, true], [1, false], [0, false]] as const) {
+      const r = lieDown(power, head);
+      expect(r.pos[J.head * 3 + 1]!, `power ${power}`).toBeLessThan(0.6);
+      expect(r.pos[J.pelvis * 3 + 1]!, `power ${power}`).toBeLessThan(0.4);
+    }
+  });
+
+  it('does not go to sleep while it is still standing up', () => {
+    const r = new Ragdoll(standing(), 0, 0, 0);
+    // No limp, no push: a perfectly balanced pose. It may stay up, but it must not be put to sleep in the air.
+    for (let i = 0; i < 90; i++) r.step(emptyArena());
+    if (r.pos[J.head * 3 + 1]! > 1.2) expect(r.asleep).toBe(false);
+  });
+});
