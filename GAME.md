@@ -17,6 +17,25 @@ Three opponents: Easy, Normal and Hard.
   menu) and an interstitial between battles (never before the second battle, never after a short one).
 - Saved data (localStorage): `novafrontier.profile` (settings, opponent, map, wins, games played)
 
+## Built for phones first
+
+The target is a phone held sideways, so touch is the main way to play and the mouse is the extra.
+
+- **Touch layout.** On a touch screen every button is at least 44 px, the command card stands taller than the
+  bottom panel so its buttons can be big without eating the battlefield, keyboard hints are hidden and text is a
+  notch larger. A test checks this at five phone sizes (667 x 375 up to 932 x 430).
+- **Controls.** Tap selects; tap the ground to move, an enemy to attack, minerals to mine. There is no right click
+  on a phone, so the Move, Attack and Rally buttons ("press one, then tap") and the x on the selection panel
+  (let go of the selection) cover the rest. Hold then drag draws a selection box; one finger pans; two fingers zoom.
+- **Fullscreen and landscape.** On a phone, pressing Battle asks the browser for fullscreen and a landscape lock
+  (Android Chrome allows both; an iPhone's Safari allows neither, so *Add to Home Screen* is the way to get a
+  fullscreen game there). The screen is kept awake during a battle. Held upright, the game asks you to turn the phone,
+  and it pauses when you leave the page.
+- **Speed you cannot test for.** The game measures its own frame rate and, if frames keep taking over about 32 ms,
+  draws fewer pixels (down to 60%). `src/game/quality.ts`, with tests.
+- **Installable.** `public/manifest.webmanifest` and the icons let Chrome and Safari install it as a fullscreen,
+  landscape app from the web page. The Android project (`android/`) is generated and locked to landscape.
+
 ## No hand-made maps
 
 A map is a number. `generateMap(seed)` scatters rock blobs and ridges, turns the picture half way
@@ -52,13 +71,14 @@ docs/            NOVAFRONTIER.md (+ pdf/)
 ## Dev flags (dev builds only)
 
 `?seed=N` the map · `?level=easy|normal|hard` · `?autostart=1` skip the menu · `?demo=0` no battle
-behind the menu · `?speed=N` run N sim ticks per update (1..16) · `?fog=0` no fog of war.
+behind the menu · `?speed=N` run N sim ticks per update (1..16) · `?fog=0` no fog of war ·
+`?quality=N` pin the resolution (0.5..1) instead of letting the game adapt it.
 `window.__game.debug` has the live match and session and helpers for tests (`spawn`, `give`,
-`screenOf`, `focus`, `freeSpot`, `destroyBuildings`).
+`screenOf`, `focus`, `freeSpot`, `destroyBuildings`, `fogBrightness`).
 
 ## Status
 
 Verified: the simulation (unit, balance and determinism tests), the whole game in desktop Chrome with
-software WebGL (Playwright, mouse and Chrome's emulated touch), the production build. **Not verified
-on a real phone or tablet**: touch feel, frame rate on a real GPU and haptics. See
-`docs/NOVAFRONTIER.md` section 11.
+software WebGL (Playwright, mouse and Chrome's emulated touch, at five phone sizes), the production
+build. **Not verified on a real phone or tablet**: touch feel, frame rate on a real GPU, haptics,
+fullscreen and the wake lock, and installing it to a home screen. See `docs/NOVAFRONTIER.md` section 11.

@@ -614,6 +614,28 @@ button {
   overflow: auto;
 }
 
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--u, 1px) * 8);
+}
+
+.panel-head .btn {
+  flex: none;
+}
+
+/* Settings: two columns of switches, so all of it fits a short screen without scrolling. */
+.screen-settings .panel {
+  width: calc(var(--u, 1px) * 340);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.screen-settings .panel-head {
+  grid-column: 1 / -1;
+}
+
 .panel-menu {
   align-items: center;
   text-align: center;
@@ -935,4 +957,111 @@ button {
   100% {
     transform: rotate(-90deg);
   }
+}
+
+/* ---- Fingers ------------------------------------------------------------------------------ */
+/* Buttons at least ~44 px, text a notch larger, no keyboard hints, and the command card free to stand taller than
+   the panel so its buttons can be big without the panel eating the battlefield. */
+
+.nova.touch .bottom {
+  height: calc(var(--u, 1px) * 92);
+}
+
+.nova.touch .mapbox {
+  width: calc(var(--u, 1px) * 92);
+  height: calc(var(--u, 1px) * 92);
+}
+
+.nova.touch .selection {
+  margin-right: calc(var(--u, 1px) * 154);
+}
+
+.nova.touch .card {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: calc(var(--u, 1px) * 150);
+  /* Three rows of at least 44 px each, even on the smallest screens. */
+  height: max(calc(var(--u, 1px) * 128), 142px);
+  grid-template-rows: repeat(3, minmax(44px, 1fr));
+  pointer-events: none;
+}
+
+.nova.touch .cmd {
+  min-height: 44px;
+  pointer-events: auto;
+}
+
+.nova.touch .cmd-empty {
+  visibility: hidden;
+}
+
+.nova.touch .cmd-key {
+  display: none;
+}
+
+.nova.touch .cmd-icon {
+  width: calc(var(--u, 1px) * 15);
+  height: calc(var(--u, 1px) * 15);
+}
+
+.nova.touch .cmd-label,
+.nova.touch .cmd-cost {
+  font-size: calc(var(--u, 1px) * 8);
+}
+
+.nova.touch .chip {
+  width: calc(var(--u, 1px) * 27);
+  height: calc(var(--u, 1px) * 27);
+  min-width: 42px;
+  min-height: 42px;
+}
+
+.nova.touch .topbar-right {
+  gap: calc(var(--u, 1px) * 6);
+}
+
+.nova.touch .res,
+.nova.touch .clock {
+  height: calc(var(--u, 1px) * 22);
+  font-size: calc(var(--u, 1px) * 12);
+}
+
+.nova.touch .sel-item {
+  width: calc(var(--u, 1px) * 26);
+  height: calc(var(--u, 1px) * 26);
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.nova.touch .queue-slot {
+  width: calc(var(--u, 1px) * 28);
+  height: calc(var(--u, 1px) * 28);
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.nova.touch .sel-close {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.nova.touch .sel-line {
+  font-size: calc(var(--u, 1px) * 9.5);
+}
+
+.nova.touch .btn {
+  min-height: 46px;
+}
+
+.nova.touch .seg {
+  min-height: 44px;
+}
+
+.nova.touch .hint {
+  bottom: calc(var(--inset-bottom, 0px) + var(--u, 1px) * 100);
+}
+
+.nova.touch .help-text {
+  font-size: calc(var(--u, 1px) * 9);
 }

@@ -537,6 +537,88 @@ test.describe('touch', () => {
   });
 });
 
+test.describe('phones', () => {
+  test.use({ hasTouch: true, isMobile: true });
+
+  // Common landscape phones, small to large (CSS pixels).
+  const SIZES: [number, number][] = [
+    [667, 375],
+    [800, 360],
+    [844, 390],
+    [915, 412],
+    [932, 430],
+  ];
+
+  test('the HUD fits every phone screen, and every button is big enough for a thumb', async ({ page }) => {
+    await startBattle(page, 'seed=3&demo=0');
+    const { workers } = await home(page);
+    await page.evaluate((id) => {
+      const d = window.__game!.debug as Record<string, any>;
+      d['session'].selected.clear();
+      d['session'].selected.add(id);
+    }, workers[0]!.id);
+    await page.keyboard.press('b'); // the fullest card: seven buildings and Back
+    await expect(page.locator('.cmd')).toHaveCount(8);
+
+    for (const [w, h] of SIZES) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.waitForTimeout(600);
+      await expect(page.locator('.cmd')).toHaveCount(8);
+      const report = await page.evaluate(() => {
+        const box = (el: Element) => {
+          const r = el.getBoundingClientRect();
+          return { x: r.x, y: r.y, w: r.width, h: r.height, right: r.right, bottom: r.bottom };
+        };
+        const named = (selector: string) => [...document.querySelectorAll(selector)].map(box);
+        return {
+          touch: document.querySelector('.nova')!.classList.contains('touch'),
+          cmds: named('.cmd'),
+          chips: named('.chip'),
+          close: named('.sel-close'),
+          map: box(document.querySelector('.mapbox')!),
+          selection: box(document.querySelector('.selection')!),
+          card: box(document.querySelector('.card')!),
+          vw: innerWidth,
+          vh: innerHeight,
+        };
+      });
+      const where = `${w}x${h}`;
+      expect(report.touch, where).toBe(true);
+      expect(report.cmds.length, where).toBe(8);
+      for (const b of [...report.cmds, ...report.chips]) {
+        expect(Math.min(b.w, b.h), `${where}: a button is at least 44 px`).toBeGreaterThanOrEqual(41.5);
+        expect(b.x, where).toBeGreaterThanOrEqual(0);
+        expect(b.y, where).toBeGreaterThanOrEqual(0);
+        expect(b.right, where).toBeLessThanOrEqual(report.vw + 0.5);
+        expect(b.bottom, where).toBeLessThanOrEqual(report.vh + 0.5);
+      }
+      expect(Math.min(report.close[0]!.w, report.close[0]!.h), where).toBeGreaterThanOrEqual(38);
+      // The three panels do not run into one another.
+      expect(report.map.right, where).toBeLessThanOrEqual(report.selection.x + 1);
+      expect(report.selection.right, where).toBeLessThanOrEqual(report.card.x + 1);
+      // And the battlefield keeps most of the screen.
+      expect(report.selection.y, where).toBeGreaterThan(report.vh * 0.6);
+      await shot(page, `16-phone-${where}`);
+    }
+  });
+
+  test('the menu and the result fit a small phone', async ({ page }) => {
+    await page.goto('/?demo=0&quality=1');
+    for (const [w, h] of SIZES) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.waitForTimeout(300);
+      const panel = await page.locator('.panel-menu').boundingBox();
+      expect(panel!.y, `${w}x${h}`).toBeGreaterThanOrEqual(0);
+      expect(panel!.y + panel!.height, `${w}x${h}`).toBeLessThanOrEqual(h + 0.5);
+      for (const name of ['Battle', 'Easy', 'Normal', 'Hard']) {
+        const b = (await button(page, new RegExp(`^${name}`)).boundingBox())!;
+        expect(Math.min(b.width, b.height), `${w}x${h} ${name}`).toBeGreaterThanOrEqual(41.5);
+      }
+    }
+    await shot(page, '17-phone-menu');
+  });
+});
+
 test.describe('the wider game', () => {
   test('a full tech path can be built: barracks, factory, airfield and a refinery, and units from them', async ({ page }) => {
     const problems = watchForErrors(page);

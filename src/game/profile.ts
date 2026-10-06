@@ -8,6 +8,8 @@ export interface Settings {
   edgeScroll: boolean;
   /** Health bars on every unit, not only the hurt and selected ones. */
   bars: boolean;
+  /** Phones: go fullscreen (and lock to landscape) when a battle starts, where the browser allows it. */
+  fullscreen: boolean;
 }
 
 export interface Profile {
@@ -24,7 +26,7 @@ export interface Profile {
 
 export const defaultProfile = (): Profile => ({
   version: 1,
-  settings: { sound: true, haptics: true, edgeScroll: false, bars: false },
+  settings: { sound: true, haptics: true, edgeScroll: false, bars: false, fullscreen: true },
   level: 'normal',
   seed: 1,
   wins: 0,
@@ -55,6 +57,7 @@ export function parseProfile(raw: string | null): Profile {
       haptics: settings['haptics'] !== false,
       edgeScroll: settings['edgeScroll'] === true,
       bars: settings['bars'] === true,
+      fullscreen: settings['fullscreen'] !== false,
     },
     level: level === 'easy' || level === 'hard' ? level : 'normal',
     seed: Math.max(1, count(record['seed'], 99999, 1)),

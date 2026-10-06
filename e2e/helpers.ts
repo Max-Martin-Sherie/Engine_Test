@@ -128,7 +128,8 @@ export async function shot(page: Page, name: string): Promise<void> {
 
 /** Starts a battle from the menu. */
 export async function startBattle(page: Page, query = 'seed=3&demo=0'): Promise<void> {
-  await page.goto(`/?${query}`);
+  // quality=1 pins the resolution: the game otherwise lowers it when a (software-rendered) test machine is slow.
+  await page.goto(`/?${query}&quality=1`);
   await button(page, /^Battle/).click();
   await waitForPhase(page, 'playing');
   await expect.poll(async () => (await snap(page)).counts['hub'] ?? 0).toBe(1);

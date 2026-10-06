@@ -4,7 +4,7 @@ import { icon } from './icons';
 import './styles.css';
 
 export type Screen = 'menu' | 'pause' | 'result' | 'help' | 'settings' | 'none';
-export type SettingKey = 'sound' | 'haptics' | 'edgeScroll' | 'bars';
+export type SettingKey = 'sound' | 'haptics' | 'edgeScroll' | 'bars' | 'fullscreen';
 export type Level = 'easy' | 'normal' | 'hard';
 export type ToastTone = 'info' | 'warn' | 'danger' | 'good';
 
@@ -139,6 +139,7 @@ const SETTINGS: readonly { key: SettingKey; label: string }[] = [
   { key: 'haptics', label: 'Vibration' },
   { key: 'edgeScroll', label: 'Edge scrolling' },
   { key: 'bars', label: 'Always show health bars' },
+  { key: 'fullscreen', label: 'Fullscreen on phones' },
 ];
 
 const HELP: readonly { title: string; rows: readonly [string, string][] }[] = [
@@ -181,9 +182,19 @@ const HELP: readonly { title: string; rows: readonly [string, string][] }[] = [
   },
 ];
 
+/** A screen's title with its Back button beside it, so Back is never off the bottom of a small screen. */
+function header(title: string): HTMLElement {
+  const head = el('div', 'panel-head');
+  head.append(el('h2', 'heading', title), button('Back', 'back', 'btn-ghost btn-small'));
+  return head;
+}
+
 export function createUi(root: HTMLElement, cb: UiCallbacks, world: { width: number; height: number }): Ui {
   const stage = createStage(root, world).element;
   stage.classList.add('nova');
+  // A finger, not a mouse: bigger buttons and no keyboard hints (the CSS reads this class).
+  const coarse = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+  stage.classList.toggle('touch', coarse);
 
   // ---- HUD ------------------------------------------------------------------------------
   const hud = el('div', 'hud');
@@ -304,7 +315,7 @@ export function createUi(root: HTMLElement, cb: UiCallbacks, world: { width: num
   const settings = section('settings', 'Settings');
   const settingsPanel = el('div', 'panel');
   const toggles = new Map<SettingKey, HTMLButtonElement>();
-  settingsPanel.append(el('h2', 'heading', 'Settings'));
+  settingsPanel.append(header('Settings'));
   for (const s of SETTINGS) {
     const b = button(s.label, 'toggle', 'toggle');
     b.dataset['key'] = s.key;
@@ -312,15 +323,16 @@ export function createUi(root: HTMLElement, cb: UiCallbacks, world: { width: num
     toggles.set(s.key, b);
     settingsPanel.append(b);
   }
-  settingsPanel.append(button('Back', 'back', 'btn-ghost'));
   settings.append(settingsPanel);
 
   // ---- help -----------------------------------------------------------------------------
   const help = section('help', 'How to play');
   const helpPanel = el('div', 'panel panel-wide');
-  helpPanel.append(el('h2', 'heading', 'How to play'));
+  helpPanel.append(header('How to play'));
   const helpColumns = el('div', 'help-cols');
-  for (const group of HELP) {
+  // On a phone the touch controls come first; the keyboard ones are the last column.
+  const groups = coarse ? [...HELP].sort((a, b) => Number(a.title.startsWith('Mouse')) - Number(b.title.startsWith('Mouse'))) : HELP;
+  for (const group of groups) {
     const col = el('div', 'help-col');
     col.append(el('h3', 'help-title', group.title));
     for (const [key, text] of group.rows) {
@@ -330,7 +342,7 @@ export function createUi(root: HTMLElement, cb: UiCallbacks, world: { width: num
     }
     helpColumns.append(col);
   }
-  helpPanel.append(helpColumns, button('Back', 'back', 'btn-ghost'));
+  helpPanel.append(helpColumns);
   help.append(helpPanel);
 
   // ---- result ---------------------------------------------------------------------------

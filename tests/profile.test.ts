@@ -4,11 +4,11 @@ import { defaultProfile, parseProfile, serializeProfile } from '../src/game/prof
 describe('the saved profile', () => {
   it('starts with sound on, normal opponents and nothing played', () => {
     expect(parseProfile(null)).toEqual(defaultProfile());
-    expect(defaultProfile()).toMatchObject({ level: 'normal', wins: 0, played: 0, helped: false, settings: { sound: true, haptics: true, edgeScroll: false, bars: false } });
+    expect(defaultProfile()).toMatchObject({ level: 'normal', wins: 0, played: 0, helped: false, settings: { sound: true, haptics: true, edgeScroll: false, bars: false, fullscreen: true } });
   });
 
   it('survives a round trip', () => {
-    const p = { ...defaultProfile(), level: 'hard' as const, seed: 77, wins: 3, played: 9, helped: true, settings: { sound: false, haptics: true, edgeScroll: true, bars: true } };
+    const p = { ...defaultProfile(), level: 'hard' as const, seed: 77, wins: 3, played: 9, helped: true, settings: { sound: false, haptics: true, edgeScroll: true, bars: true, fullscreen: false } };
     expect(parseProfile(serializeProfile(p))).toEqual(p);
   });
 

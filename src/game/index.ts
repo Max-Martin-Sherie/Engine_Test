@@ -31,6 +31,7 @@ import {
   type Outcome,
   type Session,
 } from './session';
+import { adaptQuality, createQuality } from './quality';
 import { createSfx } from './sfx';
 import { cmdRally, createMatch, drainEvents, fogAt, isBuilding, isUnit, stepMatch, typeName, type BuildingType, type Match, type MatchEvent } from './sim';
 import { createUi, type Level, type SettingKey, type Ui } from './ui';
@@ -105,6 +106,10 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
   let onMenuScreen = true;
   let idleCursor = 0;
   const alerts: Alert[] = [];
+  // ?quality=N (dev) pins the resolution; otherwise the game measures its own frame rate and lowers it if need be.
+  const pinnedQuality = dev && params.get('quality') !== null ? clamp(Number(params.get('quality')) || 1, 0.5, 1) : null;
+  const quality = createQuality(pinnedQuality ?? 1);
+  world3d.setQuality(quality.scale);
   /** Average milliseconds of CPU work per frame (drawing) and per update (the sim): for the dev snapshot. */
   const cost = { draw: 0, sim: 0, hud: 0 };
   const smooth = (old: number, sample: number): number => old + (sample - old) * 0.05;
@@ -140,6 +145,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
         applySettings();
         save();
         sfx.click();
+        if (key === 'fullscreen') void setFullscreen(profile.settings.fullscreen);
       },
       onPause: () => pause(),
       onResume: () => resume(),
@@ -182,6 +188,38 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
     },
     world,
   );
+
+  // ---- phones: fullscreen with a landscape lock, and a screen that stays awake ------------------------
+  async function setFullscreen(on: boolean): Promise<void> {
+    try {
+      if (on && document.fullscreenEnabled && document.fullscreenElement === null) {
+        await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+        await (screen.orientation as ScreenOrientation & { lock?: (orientation: string) => Promise<void> }).lock?.('landscape');
+      } else if (!on && document.fullscreenElement !== null) {
+        await document.exitFullscreen();
+      }
+    } catch {
+      // Not allowed here (an iPhone's Safari has no fullscreen): the game plays the same without it.
+    }
+  }
+
+  let wake: WakeLockSentinel | null = null;
+  async function keepAwake(on: boolean): Promise<void> {
+    try {
+      if (on && wake === null && 'wakeLock' in navigator) {
+        wake = await navigator.wakeLock.request('screen');
+        wake.addEventListener('release', () => {
+          wake = null;
+        });
+      } else if (!on && wake !== null) {
+        const held = wake;
+        wake = null;
+        await held.release();
+      }
+    } catch {
+      wake = null;
+    }
+  }
 
   function applySettings(): void {
     audio.setEnabled(profile.settings.sound);
@@ -454,6 +492,9 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
     }
     phase = 'playing';
     onMenuScreen = false;
+    // On a phone the first press is also the gesture the browser needs to allow fullscreen.
+    if (touch && profile.settings.fullscreen) void setFullscreen(true);
+    void keepAwake(true);
     ui.show('none');
     ui.showHud(true);
     hudDirty = true;
@@ -467,6 +508,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
   }
 
   function toMenu(): void {
+    void keepAwake(false);
     phase = 'menu';
     match = null;
     session = null;
@@ -541,6 +583,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
 
   function endMatch(m: Match): void {
     const won = m.winner === 0;
+    void keepAwake(false);
     phase = 'result';
     profile.played += 1;
     if (won) profile.wins += 1;
@@ -737,6 +780,10 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
     const dt = Math.min(0.1, (now - lastNow) / 1000);
     lastNow = now;
     clockTime += dt;
+    if (pinnedQuality === null && !document.hidden && phase !== 'paused' && adaptQuality(quality, dt, clockTime)) {
+      world3d.setQuality(quality.scale);
+      analytics.track('quality_lowered', { scale: Math.round(quality.scale * 100) });
+    }
 
     world3d.layout(view.fit());
     const m = matchOf();
@@ -787,6 +834,7 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
   // Leaving the game (another tab, a turned phone) pauses it: nobody should lose a base while looking away.
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) pause();
+    else if (phase === 'playing' || phase === 'paused') void keepAwake(true);
   });
   if (typeof window.matchMedia === 'function') {
     const portrait = window.matchMedia('(orientation: portrait) and (max-width: 820px)');

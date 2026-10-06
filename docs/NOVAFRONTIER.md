@@ -197,6 +197,32 @@ a frame in a 115-entity battle.
 - A phone held upright shows a "turn your phone sideways" screen, and the game pauses itself when
   the page is hidden or turned upright.
 
+### Phones first
+
+The target is a phone held sideways, so the design starts from the thumb.
+
+- **Layout.** `createUi` adds a `touch` class to the stage when the primary pointer is coarse
+  (`(pointer: coarse)`), and `ui/styles.css` ends with a `.nova.touch` block: buttons at least 44 px
+  (`min-height: 44px`, chips 42 px), the 3 x 3 command card absolutely positioned so it can be taller than the
+  bottom panel (its empty slots are invisible and take no presses, so the card never blocks the battlefield),
+  keyboard hints hidden, text a notch bigger. Sizes are in world units (`calc(var(--u) * n)`), which are about
+  1.0 to 1.2 px on a phone, so the floors in pixels are what really guarantee the size.
+- **`e2e` "phones".** The HUD is measured at 667 x 375, 800 x 360, 844 x 390, 915 x 412 and 932 x 430: every
+  button at least 42 px, nothing off screen, the three panels not overlapping, the battlefield keeping the top
+  60%; and the menu fits.
+- **Fullscreen, landscape lock, wake lock** (`index.ts`). On a touch device the Battle press (a user gesture,
+  which browsers require) calls `requestFullscreen` and `screen.orientation.lock('landscape')`, and a screen
+  wake lock is held during a battle (released at the menu and the result, taken again when the page returns).
+  All of it is wrapped in try/catch: Safari on an iPhone supports none of the first two, and the game plays the
+  same. The Settings screen has a "Fullscreen on phones" switch.
+- **Adaptive resolution** (`quality.ts`). A phone's GPU cannot be known, so the game measures: a smoothed frame
+  time above about 32 ms lowers the 3D resolution one step (x 0.85, floor 0.6), at most every 3 seconds, and never
+  raises it again (so it cannot flap). One long hitch does not count. `tests/quality.test.ts` covers it; `?quality=N`
+  pins it in dev so screenshots and tests stay sharp.
+- **Installable.** `public/manifest.webmanifest` (fullscreen, landscape), PNG icons made from the favicon's
+  artwork (including a maskable one for Android and an apple-touch-icon), and the Apple meta tags in
+  `index.html`: "Add to Home Screen" gives a fullscreen landscape app, the only way to get fullscreen on an iPhone.
+
 ## 10. The flow (`index.ts`)
 
 Phases: **menu** (a real computer-against-computer battle plays behind it, fast-forwarded two minutes
@@ -220,8 +246,9 @@ screenshots in `e2e/screenshots/`: a passing test does not prove the picture is 
 
 **Not verified:** a real phone. The touch controls were exercised with Chrome's emulated touch events,
 which are faithful for pointer logic but not for finger size, palm contact or latency; the frame rate
-was only measured as CPU time (software WebGL cannot say how a phone GPU will do); haptics and sound
-were not heard. The native Android project is generated (`npm run android:setup`) but was not run on
+was only measured as CPU time (software WebGL cannot say how a phone GPU will do, which is why the
+resolution adapts by itself); haptics and sound were not heard; fullscreen, the landscape lock and the wake
+lock were not tried on a device; installing the page to a home screen was not tried. The native Android project is generated (`npm run android:setup`) but was not run on
 a device, and iOS needs a Mac.
 
 ## 12. How to change things

@@ -102,6 +102,8 @@ export interface World3d {
   viewQuad(): Screen2D[];
   /** Keeps the camera over the map. */
   clampCamera(): void;
+  /** Draws at this fraction (0.5 .. 1) of the usual resolution: the flow lowers it on a device that cannot keep up. */
+  setQuality(scale: number): void;
   /** How bright the fog leaves a map cell right now, 0 (black) to 1 (clear). For tests. */
   fogBrightness(x: number, y: number): number;
   dispose(): void;
@@ -306,6 +308,8 @@ export function createWorld3d(host: HTMLElement, world: WorldSize): World3d {
   let lastWidth = 0;
   let lastHeight = 0;
   let lastScale = 0;
+  let lastRatio = 0;
+  let quality = 1;
 
   function updateCamera(): void {
     const d = cam.zoom;
@@ -651,8 +655,10 @@ export function createWorld3d(host: HTMLElement, world: WorldSize): World3d {
       const height = Math.max(2, Math.round(world.height * fit.scale));
       const left = Math.round(fit.offsetX);
       const top = Math.round(fit.offsetY);
-      if (width !== lastWidth || height !== lastHeight || fit.scale !== lastScale) {
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxRatio));
+      const ratio = Math.min(window.devicePixelRatio || 1, maxRatio) * quality;
+      if (width !== lastWidth || height !== lastHeight || fit.scale !== lastScale || ratio !== lastRatio) {
+        renderer.setPixelRatio(ratio);
+        lastRatio = ratio;
         renderer.setSize(width, height, false);
         canvas.style.width = `${width}px`;
         canvas.style.height = `${height}px`;
@@ -692,6 +698,9 @@ export function createWorld3d(host: HTMLElement, world: WorldSize): World3d {
     viewQuad,
     clampCamera,
     fogBrightness: (x, y) => fogMap.valueAt(x, y),
+    setQuality(scale) {
+      quality = Math.min(1, Math.max(0.5, scale));
+    },
 
     dispose() {
       terrain?.dispose();
