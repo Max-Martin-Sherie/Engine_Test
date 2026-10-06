@@ -94,6 +94,22 @@ test('the empty engine shows a blank screen', async ({ page }) => {
   expect(problems).toEqual([]);
 });
 
+test('the engine canvas paints above a canvas a game lays under it (3D games)', async ({ page }) => {
+  await page.goto('/');
+  await waitForRenderer(page);
+  const top = await page.evaluate(() => {
+    const own = document.createElement('canvas');
+    own.dataset['layer'] = 'test';
+    own.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%';
+    const host = document.getElementById('game')!;
+    host.insertBefore(own, host.firstChild);
+    const hit = document.elementFromPoint(2, 2);
+    own.remove();
+    return hit === own ? 'game' : hit?.classList.contains('engine-canvas') ? 'engine' : 'other';
+  });
+  expect(top).toBe('engine');
+});
+
 test('the ad service starts in the background and reports a loaded ad', async ({ page }) => {
   await page.goto('/');
   await expect.poll(async () => (await engine(page))?.adsReady, { timeout: 10_000 }).toBe(true);
