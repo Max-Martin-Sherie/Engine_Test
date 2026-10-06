@@ -1,4 +1,5 @@
 import { boot } from './engine';
 import { createGame } from './game';
 
-boot(createGame);
+// A landscape play field, with a transparent 2D layer over the game's own 3D canvas.
+boot(createGame, { orientation: 'landscape', transparent: true });

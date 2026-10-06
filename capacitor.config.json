@@ -1,6 +1,7 @@
 {
-  "appId": "com.example.game",
-  "appName": "Game Engine",
+  "appId": "com.maxmartin.arenazero",
+  "appName": "Arena Zero",
   "webDir": "dist",
-  "backgroundColor": "#0c2a33"
+  "backgroundColor": "#070a12",
+  "orientation": "landscape"
 }
