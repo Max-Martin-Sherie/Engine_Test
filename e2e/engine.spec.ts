@@ -13,7 +13,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 const EMPTY_GAME = readFileSync('src/game/index.ts', 'utf8').includes('IS_EMPTY_GAME = true');
 
-const LANDSCAPE = /orientation:s*['"]landscape['"]/.test(readFileSync('src/main.ts', 'utf8'));
+const LANDSCAPE = /orientation: *['"]landscape['"]/.test(readFileSync('src/main.ts', 'utf8'));
 /** The play field in world units. */
 const WORLD = LANDSCAPE ? { width: 640, height: 360 } : { width: 360, height: 640 };
 
