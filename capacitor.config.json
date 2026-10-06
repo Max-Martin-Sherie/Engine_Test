@@ -1,6 +1,7 @@
 {
-  "appId": "com.example.game",
-  "appName": "Game Engine",
+  "appId": "com.maxmartin.novafrontier",
+  "appName": "Nova Frontier",
   "webDir": "dist",
-  "backgroundColor": "#0c2a33"
+  "backgroundColor": "#05080f",
+  "orientation": "landscape"
 }

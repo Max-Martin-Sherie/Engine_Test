@@ -15,10 +15,15 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   use: {
-    ...devices['Pixel 7'],
+    // A phone held sideways: this is a landscape game.
+    ...devices['Pixel 7 landscape'],
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
-    launchOptions: executablePath ? { executablePath } : {},
+    launchOptions: {
+      ...(executablePath ? { executablePath } : {}),
+      // The game draws in 3D: headless Chrome needs a software WebGL to do it.
+      args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-webgl'],
+    },
   },
   webServer: {
     command: `npm run dev -- --port ${PORT} --strictPort`,
