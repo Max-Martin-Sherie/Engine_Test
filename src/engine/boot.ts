@@ -1,10 +1,17 @@
 import type { EngineContext, GameFactory } from './context';
-import { WORLD } from './core/config';
+import { worldFor, type Orientation } from './core/config';
 import { PointerInput } from './core/input';
 import { FixedLoop } from './core/loop';
 import { createServices, parseFakeAdMode } from './services';
 import './ui/base.css';
 import { createEngineView } from './view/view';
+
+export interface BootOptions {
+  /** 'portrait' (360 x 640, the default) or 'landscape' (640 x 360). The play field is letterboxed to fit. */
+  orientation?: Orientation;
+  /** A transparent 2D canvas, so a game can draw its own canvas (3D) underneath and use the 2D layer for its overlay. */
+  transparent?: boolean;
+}
 
 function requireElement(id: string): HTMLElement {
   const node = document.getElementById(id);
@@ -19,17 +26,18 @@ function requireElement(id: string): HTMLElement {
  * The loop starts immediately; the renderer and ad SDK start up in the background, so a game's
  * own UI is never blocked by them.
  */
-export function boot(createGame: GameFactory): void {
+export function boot(createGame: GameFactory, options: BootOptions = {}): void {
+  const world = worldFor(options.orientation ?? 'portrait');
   const params = new URLSearchParams(window.location.search);
   const { ads, analytics, haptics, audio } = createServices({ fakeAdMode: parseFakeAdMode(params.get('ads')) });
   const gameHost = requireElement('game');
   // Drag gestures only start on the game canvas, never on DOM buttons laid over it.
   const input = new PointerInput(window, gameHost);
-  const view = createEngineView(gameHost);
+  const view = createEngineView(gameHost, { world, transparent: options.transparent ?? false });
 
   let loop: FixedLoop | undefined;
   const context: EngineContext = {
-    world: WORLD,
+    world,
     input,
     view,
     ads,
