@@ -404,6 +404,17 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
       }
     }
     world3d.load(demo.map);
+    // The camera opens on the first base.
+    const first = demo.entities.find((e) => e.alive && e.type === 'hub' && e.owner === 0);
+    if (first !== undefined) {
+      world3d.cam.x = first.x;
+      world3d.cam.y = first.y;
+      world3d.cam.zoom = 26;
+      world3d.clampCamera();
+      actionX = first.x;
+      actionY = first.y;
+      actionAt = clockTime;
+    }
   }
 
   /** New workers from a hub go straight to its minerals unless the player says otherwise. */
@@ -699,7 +710,8 @@ export const createGame: GameFactory = ({ ads, analytics, audio, haptics, view, 
         const a = hubs[0];
         const b = hubs[1] ?? a;
         if (a !== undefined && b !== undefined) {
-          const t = clamp(0.5 + 0.95 * Math.sin(clockTime * 0.05), 0, 1);
+          // Starts at the first base, lingers at each end, and crosses the middle quickly.
+          const t = clamp(0.5 + 0.95 * Math.sin(clockTime * 0.05 - 1.2), 0, 1);
           actionX = a.x + (b.x - a.x) * t;
           actionY = a.y + (b.y - a.y) * t;
         }
