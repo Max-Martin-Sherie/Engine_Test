@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Configures the generated native projects for AdMob and a portrait-only game.
+ * Configures the generated native projects for AdMob and a portrait-only (or landscape-only) game.
+ * The orientation comes from "orientation" in capacitor.config.json ("portrait" if it is not there).
  *
  *   node scripts/setup-native.mjs <android|ios>
  *
@@ -34,11 +35,13 @@ function assertAppId(value, name) {
 
 /**
  * Adds the AdMob APPLICATION_ID meta-data (pointing at @string/admob_app_id) and locks
- * MainActivity to portrait.
+ * MainActivity to portrait (or landscape, both ways round).
  * @param {string} xml AndroidManifest.xml
+ * @param {'portrait' | 'landscape'} [orientation]
  * @returns {string}
  */
-export function patchAndroidManifest(xml) {
+export function patchAndroidManifest(xml, orientation = 'portrait') {
+  const lock = orientation === 'landscape' ? 'sensorLandscape' : 'portrait';
   let out = xml;
 
   if (!out.includes('com.google.android.gms.ads.APPLICATION_ID')) {
@@ -60,12 +63,12 @@ export function patchAndroidManifest(xml) {
   const activity = /<activity\b[^>]*android:name="[\w.]*\.MainActivity"[^>]*>/.exec(out);
   if (!activity) throw new Error('AndroidManifest.xml has no MainActivity <activity>');
   const tag = activity[0];
-  const orientation = /android:screenOrientation="[^"]*"/;
-  const patched = orientation.test(tag)
-    ? tag.replace(orientation, 'android:screenOrientation="portrait"')
+  const orientationAttribute = /android:screenOrientation="[^"]*"/;
+  const patched = orientationAttribute.test(tag)
+    ? tag.replace(orientationAttribute, `android:screenOrientation="${lock}"`)
     : tag.replace(
         /(android:name="[\w.]*\.MainActivity")/,
-        '$1\n            android:screenOrientation="portrait"',
+        `$1\n            android:screenOrientation="${lock}"`,
       );
   return out.replace(tag, () => patched);
 }
@@ -107,13 +110,13 @@ function insertTopLevel(xml, entries) {
 
 /**
  * Adds GADApplicationIdentifier, NSUserTrackingUsageDescription and the Google SKAdNetwork ID,
- * and limits iPhone to portrait. iPad orientations are left as they are.
+ * and limits iPhone to portrait (or landscape). iPad orientations are left as they are.
  * @param {string} input Info.plist
- * @param {{ appId?: string, overwriteAppId?: boolean }} [options]
+ * @param {{ appId?: string, overwriteAppId?: boolean, orientation?: 'portrait' | 'landscape' }} [options]
  * @returns {string}
  */
 export function patchInfoPlist(input, options = {}) {
-  const { appId = IOS_TEST_APP_ID, overwriteAppId = false } = options;
+  const { appId = IOS_TEST_APP_ID, overwriteAppId = false, orientation = 'portrait' } = options;
   const eol = input.includes('\r\n') ? '\r\n' : '\n';
   let xml = input.replace(/\r\n/g, '\n');
 
@@ -151,20 +154,24 @@ export function patchInfoPlist(input, options = {}) {
     xml = xml.replace(sk[0], () => updated);
   }
 
-  // iPhone: portrait only.
+  // iPhone: one orientation family only.
+  const allowed =
+    orientation === 'landscape'
+      ? ['UIInterfaceOrientationLandscapeLeft', 'UIInterfaceOrientationLandscapeRight']
+      : ['UIInterfaceOrientationPortrait'];
   const orientations = plistEntry('UISupportedInterfaceOrientations').exec(xml);
-  const portraitOnly = [
+  const only = [
     '<key>UISupportedInterfaceOrientations</key>',
     '\t<array>',
-    '\t\t<string>UIInterfaceOrientationPortrait</string>',
+    ...allowed.map((name) => `\t\t<string>${name}</string>`),
     '\t</array>',
   ].join('\n');
   if (!orientations) {
-    xml = insertTopLevel(xml, `\t${portraitOnly}\n`);
+    xml = insertTopLevel(xml, `\t${only}\n`);
   } else {
     const values = [...orientations[0].matchAll(/<string>([^<]*)<\/string>/g)].map((m) => m[1]);
-    const already = values.length === 1 && values[0] === 'UIInterfaceOrientationPortrait';
-    if (!already) xml = xml.replace(orientations[0], () => portraitOnly);
+    const already = values.length === allowed.length && allowed.every((name) => values.includes(name));
+    if (!already) xml = xml.replace(orientations[0], () => only);
   }
 
   return xml.replace(/\n/g, eol);
@@ -193,19 +200,36 @@ function updateFile(file, patch, log) {
 }
 
 /**
+ * The orientation the game declares in capacitor.config.json ("portrait" when it says nothing).
+ * @param {string} root
+ * @returns {'portrait' | 'landscape'}
+ */
+export function readOrientation(root) {
+  const file = join(root, 'capacitor.config.json');
+  if (!existsSync(file)) return 'portrait';
+  try {
+    const value = JSON.parse(readFileSync(file, 'utf8')).orientation;
+    return value === 'landscape' ? 'landscape' : 'portrait';
+  } catch {
+    return 'portrait';
+  }
+}
+
+/**
  * @param {string} platform "android" or "ios"
  * @param {{ root?: string, env?: Record<string, string | undefined>, log?: (message: string) => void }} [options]
  * @returns {boolean} whether anything changed
  */
 export function setupNative(platform, options = {}) {
   const { root = process.cwd(), env = process.env, log = console.log } = options;
-  log(`Configuring ${platform} for AdMob test ads + portrait`);
+  const orientation = readOrientation(root);
+  log(`Configuring ${platform} for AdMob test ads + ${orientation}`);
 
   if (platform === 'android') {
     const override = env['ADMOB_APP_ID_ANDROID'];
     if (override) assertAppId(override, 'ADMOB_APP_ID_ANDROID');
     const main = join(root, 'android', 'app', 'src', 'main');
-    const manifest = updateFile(join(main, 'AndroidManifest.xml'), patchAndroidManifest, log);
+    const manifest = updateFile(join(main, 'AndroidManifest.xml'), (xml) => patchAndroidManifest(xml, orientation), log);
     const strings = updateFile(
       join(main, 'res', 'values', 'strings.xml'),
       (xml) => patchAndroidStrings(xml, override || ANDROID_TEST_APP_ID, Boolean(override)),
@@ -220,7 +244,7 @@ export function setupNative(platform, options = {}) {
     return updateFile(
       join(root, 'ios', 'App', 'App', 'Info.plist'),
       (xml) =>
-        patchInfoPlist(xml, { appId: override || IOS_TEST_APP_ID, overwriteAppId: Boolean(override) }),
+        patchInfoPlist(xml, { appId: override || IOS_TEST_APP_ID, overwriteAppId: Boolean(override), orientation }),
       log,
     );
   }

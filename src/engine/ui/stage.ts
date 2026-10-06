@@ -62,7 +62,7 @@ export interface Stage {
  * letterboxed canvas. It adds no visuals; styling is up to the game. `root` ignores pointer
  * events, so give your own interactive elements `pointer-events: auto`.
  */
-export function createStage(root: HTMLElement): Stage {
+export function createStage(root: HTMLElement, world: WorldSize = WORLD): Stage {
   root.classList.add('ui-root');
 
   // Reads the device's safe-area insets as pixels. Capacitor's SystemBars plugin exposes them as
@@ -76,12 +76,13 @@ export function createStage(root: HTMLElement): Stage {
   function layout(): void {
     const style = getComputedStyle(probe);
     const px = (value: string): number => Number.parseFloat(value) || 0;
-    const result = computeStageLayout(root.clientWidth, root.clientHeight, {
+    const safe = {
       top: px(style.paddingTop),
       right: px(style.paddingRight),
       bottom: px(style.paddingBottom),
       left: px(style.paddingLeft),
-    });
+    };
+    const result = computeStageLayout(root.clientWidth, root.clientHeight, safe, world);
     element.style.left = `${result.left}px`;
     element.style.top = `${result.top}px`;
     element.style.width = `${result.width}px`;
