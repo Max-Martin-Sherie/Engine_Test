@@ -31,6 +31,15 @@ body {
   display: block;
 }
 
+/*
+ * The engine's canvas always paints above any canvas a game lays under it (a 3D view). Without an explicit
+ * stacking position, a game's absolutely positioned canvas would paint over this static one, hiding the 2D layer.
+ */
+#game .engine-canvas {
+  position: relative;
+  z-index: 1;
+}
+
 [hidden] {
   display: none !important;
 }

@@ -134,6 +134,7 @@ export function createEngineView(host: HTMLElement, options: ViewOptions = {}): 
         background,
         backgroundAlpha: transparent ? 0 : 1,
       });
+      app.canvas.classList.add('engine-canvas');
       host.append(app.canvas);
       app.stage.addChild(worldRoot);
       removeAccessibilityHook(app);
